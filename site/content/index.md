@@ -1,10 +1,8 @@
 # Benjamin Connelly
 
-Engineer. Builder. Tinkerer of things that probably don't need tinkering.
+Fun. Open source software. Monsters. Dark disco. Fixing things until they're broken.
 
-Welcome to my corner of the internet. I build software, break hardware, and occasionally
-ship things that work on the first try (lies). I've been writing code since the days when
-"deploy" meant burning a CD-R and walking it to the server room.
+I mass produce things nobody asked for and break the things people depend on. Somewhere between networking, security, and whatever "DevOps" means this week, I keep the lights on. When I'm not staring at a terminal I'm walking around photographing graffiti, cooking something questionable, feeding my sticker addiction, or at one red light and a mirrorball.
 
 ## What I'm Up To
 
@@ -18,7 +16,7 @@ open-source contribution when the mood strikes.
 ## Links
 
 - **GitHub:** [benjamin-connelly](https://github.com/benjamin-connelly)
-- **Site source:** It's Ansible all the way down
+- **Stack:** Terraform, Ansible, nginx, Cloudflare — [source on GitHub](https://github.com/benjamin-connelly)
 
 ## What's New
 
