@@ -9,7 +9,7 @@ sync:
 	rsync -av --delete $(SPONGE_DIR)/procurement/ site/content/research/procurement/
 
 build:
-	python site/build.py
+	python3 site/build.py
 
 deploy:
 	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml

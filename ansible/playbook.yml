@@ -2,8 +2,10 @@
 - name: Deploy benjaminconnelly.com
   hosts: web
   become: true
+  vars_files:
+    - group_vars/vault.yml
   roles:
     - security
-    - nginx
     - certbot
+    - nginx
     - site

@@ -1,7 +1,9 @@
 ---
-- name: Install nginx
+- name: Install nginx and apache2-utils
   ansible.builtin.apt:
-    name: nginx
+    name:
+      - nginx
+      - apache2-utils
     state: present
 
 - name: Create webroot directory
@@ -30,10 +32,13 @@
   notify: Restart nginx
 
 - name: Create htpasswd file
-  community.general.htpasswd:
+  ansible.builtin.command:
+    cmd: htpasswd -bc /etc/nginx/.htpasswd {{ vault_htpasswd_user }} {{ vault_htpasswd_password }}
+  changed_when: true
+
+- name: Set htpasswd permissions
+  ansible.builtin.file:
     path: /etc/nginx/.htpasswd
-    name: "{{ vault_htpasswd_user }}"
-    password: "{{ vault_htpasswd_password }}"
     owner: root
     group: www-data
     mode: "0640"

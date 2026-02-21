@@ -1,20 +1,38 @@
 ---
-- name: Install certbot
+- name: Install certbot and Cloudflare DNS plugin
   ansible.builtin.apt:
     name:
       - certbot
-      - python3-certbot-nginx
+      - python3-certbot-dns-cloudflare
     state: present
+
+- name: Create Cloudflare credentials directory
+  ansible.builtin.file:
+    path: /etc/letsencrypt
+    state: directory
+    mode: "0700"
+
+- name: Deploy Cloudflare credentials for certbot
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/cloudflare.ini
+    content: |
+      dns_cloudflare_api_token = {{ vault_cloudflare_api_token }}
+    owner: root
+    group: root
+    mode: "0600"
 
 - name: Check if certificate exists
   ansible.builtin.stat:
     path: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
   register: cert_file
 
-- name: Obtain SSL certificate
+- name: Obtain SSL certificate via DNS-01 challenge
   ansible.builtin.command:
     cmd: >
-      certbot certonly --nginx
+      certbot certonly
+      --dns-cloudflare
+      --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
+      --dns-cloudflare-propagation-seconds 60
       -d {{ domain }}
       -d www.{{ domain }}
       --email {{ certbot_email }}
