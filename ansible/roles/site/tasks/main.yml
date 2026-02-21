@@ -1,0 +1,19 @@
+---
+- name: Synchronize site output to webroot
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../site/output/"
+    dest: "{{ webroot }}/"
+    delete: true
+    recursive: true
+
+- name: Set webroot ownership
+  ansible.builtin.file:
+    path: "{{ webroot }}"
+    owner: www-data
+    group: www-data
+    recurse: true
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded

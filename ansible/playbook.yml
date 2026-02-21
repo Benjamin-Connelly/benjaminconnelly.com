@@ -1,0 +1,9 @@
+---
+- name: Deploy benjaminconnelly.com
+  hosts: web
+  become: true
+  roles:
+    - security
+    - nginx
+    - certbot
+    - site

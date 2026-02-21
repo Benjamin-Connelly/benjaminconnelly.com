@@ -1,0 +1,4 @@
+domain: benjaminconnelly.com
+webroot: /var/www/{{ domain }}
+certbot_email: ben@benjaminconnelly.com
+research_auth_realm: "Sponge Stamps Research"

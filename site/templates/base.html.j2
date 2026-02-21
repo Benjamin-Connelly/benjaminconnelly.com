@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Benjamin Connelly{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/retro.css">
+    <link rel="icon" href="/img/favicon.ico">
+</head>
+<body>
+    <div class="marquee-container">
+        <div class="marquee-text">
+            *** Welcome to benjaminconnelly.com *** Engineer // Builder // Tinkerer *** Now with 100% more SSL ***
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <a href="/" class="nav-btn">Home</a>
+        <span class="nav-sep">|</span>
+        <a href="/research/" class="nav-btn">Research</a>
+        <span class="nav-sep">|</span>
+        <a href="https://github.com/benjaminconnelly" class="nav-btn">GitHub</a>
+    </nav>
+
+    <div class="page-frame">
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <div class="visitor-counter">
+        <span class="counter-label">Visitors:</span>
+        <span class="counter-digits">001,337</span>
+    </div>
+
+    <footer class="site-footer">
+        <p>Best viewed at 800x600 | No cookies. No trackers.</p>
+    </footer>
+</body>
+</html>

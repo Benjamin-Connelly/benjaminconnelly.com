@@ -1,0 +1,588 @@
+/* ==========================================================================
+   RETRO.CSS - A tasteful 1997 aesthetic for the modern web
+   ========================================================================== */
+
+/* --- Reset & Base --- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #000000;
+    background-color: #000080;
+    background-image: radial-gradient(circle, #0000a0 1px, transparent 1px);
+    background-size: 16px 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+}
+
+/* --- Scrolling Marquee Banner --- */
+
+.marquee-container {
+    width: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    border-bottom: 2px solid #00ff00;
+    padding: 8px 0;
+    white-space: nowrap;
+}
+
+.marquee-text {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: #00ff00;
+    animation: marquee-scroll 20s linear infinite;
+    padding-left: 100%;
+}
+
+@keyframes marquee-scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+/* --- Navigation Bar --- */
+
+.navbar {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 12px;
+    margin-top: 12px;
+    background-color: #c0c0c0;
+    border: 3px outset #dfdfdf;
+}
+
+.nav-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: #000000;
+    text-decoration: none;
+    padding: 4px 16px;
+    background-color: #c0c0c0;
+    border: 2px outset #dfdfdf;
+    cursor: pointer;
+}
+
+.nav-btn:hover {
+    border-style: inset;
+    background-color: #b0b0b0;
+}
+
+.nav-btn:active {
+    border-style: inset;
+    background-color: #a0a0a0;
+}
+
+.nav-sep {
+    font-family: 'Share Tech Mono', monospace;
+    color: #808080;
+    user-select: none;
+}
+
+/* --- Page Frame (Win95 Window Look) --- */
+
+.page-frame {
+    width: 100%;
+    max-width: 800px;
+    margin: 12px auto;
+    background-color: #c0c0c0;
+    border: 3px outset #dfdfdf;
+    padding: 4px;
+    flex-grow: 1;
+}
+
+.content-area {
+    background-color: #ffffff;
+    border: 2px inset #808080;
+    padding: 24px 32px;
+    min-height: 400px;
+}
+
+/* --- Typography --- */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Share Tech Mono', monospace;
+    margin-top: 1.4em;
+    margin-bottom: 0.6em;
+    line-height: 1.3;
+}
+
+h1 {
+    font-size: 1.8rem;
+    color: #000080;
+    border-bottom: 2px solid #000080;
+    padding-bottom: 6px;
+}
+
+h2 {
+    font-size: 1.4rem;
+    color: #800000;
+    border-left: 3px solid #800000;
+    padding-left: 10px;
+}
+
+h3 {
+    font-size: 1.2rem;
+    color: #008000;
+}
+
+h4 {
+    font-size: 1.1rem;
+    color: #000080;
+}
+
+h5 {
+    font-size: 1rem;
+    color: #800000;
+}
+
+h6 {
+    font-size: 0.9rem;
+    color: #808080;
+    text-transform: uppercase;
+}
+
+p {
+    margin-bottom: 1em;
+}
+
+strong {
+    color: #000080;
+}
+
+em {
+    color: #555555;
+}
+
+/* --- Links --- */
+
+a {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+a:visited {
+    color: #800080;
+}
+
+a:hover {
+    color: #ff0000;
+}
+
+a:active {
+    color: #ff0000;
+}
+
+/* --- Horizontal Rules --- */
+
+hr {
+    border: none;
+    height: 2px;
+    background: linear-gradient(to right, #000080, #00cccc, #000080);
+    margin: 1.5em 0;
+}
+
+/* --- Tables --- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.95rem;
+}
+
+thead tr,
+table tr:first-child {
+    background-color: #000080;
+    color: #ffffff;
+}
+
+thead th,
+table tr:first-child td {
+    background-color: #000080;
+    color: #ffffff;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: normal;
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid #999999;
+}
+
+th, td {
+    padding: 8px 12px;
+    border: 1px solid #999999;
+    text-align: left;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #e8e8e8;
+}
+
+tbody tr:hover {
+    background-color: #ffffcc;
+}
+
+/* --- Under Construction Banner --- */
+
+.under-construction {
+    background: repeating-linear-gradient(
+        45deg,
+        #ffcc00,
+        #ffcc00 10px,
+        #000000 10px,
+        #000000 20px
+    );
+    color: #ffcc00;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    text-shadow:
+        1px 1px 0 #000000,
+        -1px -1px 0 #000000,
+        1px -1px 0 #000000,
+        -1px 1px 0 #000000;
+    border: 2px solid #000000;
+}
+
+/* --- Visitor Counter --- */
+
+.visitor-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 12px auto;
+    padding: 6px 16px;
+    background-color: #000000;
+    border: 2px inset #333333;
+    width: fit-content;
+}
+
+.counter-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: #00ff00;
+}
+
+.counter-digits {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.2rem;
+    color: #00ff00;
+    letter-spacing: 2px;
+    min-width: 100px;
+    text-align: center;
+}
+
+/* --- Footer --- */
+
+.site-footer {
+    width: 100%;
+    max-width: 800px;
+    background-color: #c0c0c0;
+    border-top: 3px outset #dfdfdf;
+    padding: 10px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.site-footer p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: #555555;
+    margin: 0;
+}
+
+/* --- Code Blocks --- */
+
+pre {
+    background-color: #000000;
+    color: #00ff00;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    padding: 16px;
+    border: 2px inset #333333;
+    overflow-x: auto;
+    margin: 1em 0;
+    line-height: 1.4;
+}
+
+code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9em;
+}
+
+p code,
+li code {
+    background-color: #e8e8e8;
+    padding: 2px 6px;
+    border: 1px solid #cccccc;
+    color: #800000;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #00ff00;
+}
+
+/* --- Blockquotes --- */
+
+blockquote {
+    border-left: 3px solid #800000;
+    background-color: #c0c0c0;
+    padding: 12px 16px;
+    margin: 1em 0;
+    font-style: italic;
+    color: #333333;
+}
+
+blockquote p {
+    margin-bottom: 0.5em;
+}
+
+blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* --- Lists --- */
+
+ul {
+    list-style: none;
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+
+ul li {
+    margin-bottom: 0.4em;
+}
+
+ul li::before {
+    content: "\25B6";
+    color: #000080;
+    font-size: 0.7em;
+    margin-right: 8px;
+    display: inline-block;
+    width: 1em;
+}
+
+ol {
+    padding-left: 2em;
+    margin: 0.5em 0;
+}
+
+ol li {
+    margin-bottom: 0.4em;
+    padding-left: 4px;
+}
+
+/* Nested lists */
+ul ul,
+ol ol,
+ul ol,
+ol ul {
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+
+/* --- Breadcrumb --- */
+
+.breadcrumb {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    color: #808080;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #cccccc;
+}
+
+.breadcrumb a {
+    color: #000080;
+}
+
+.breadcrumb a:hover {
+    color: #ff0000;
+}
+
+/* --- Document Metadata --- */
+
+.doc-metadata {
+    background-color: #e8e8e8;
+    border: 1px solid #999999;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.doc-metadata table {
+    margin: 0;
+    width: auto;
+}
+
+.doc-metadata td {
+    padding: 4px 12px 4px 0;
+    border: none;
+    background: none;
+}
+
+.doc-metadata tr:hover {
+    background: none;
+}
+
+/* --- Home Content --- */
+
+.home-content {
+    padding: 0;
+}
+
+/* --- Index Content --- */
+
+.index-content ol {
+    font-size: 1.05rem;
+}
+
+.index-content ol li {
+    padding: 4px 0;
+}
+
+.index-content ol li a {
+    font-weight: bold;
+}
+
+/* --- Images --- */
+
+img {
+    max-width: 100%;
+    height: auto;
+    border: 2px solid #000000;
+}
+
+/* --- Selection --- */
+
+::selection {
+    background-color: #000080;
+    color: #ffffff;
+}
+
+/* --- Scrollbar (Webkit) --- */
+
+::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+::-webkit-scrollbar-track {
+    background: #c0c0c0;
+    border: 1px solid #808080;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #808080;
+    border: 2px outset #a0a0a0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+}
+
+::-webkit-scrollbar-corner {
+    background: #c0c0c0;
+}
+
+/* --- Responsive (but retro) --- */
+
+@media (max-width: 840px) {
+    .page-frame {
+        margin: 8px;
+        max-width: calc(100% - 16px);
+    }
+
+    .navbar {
+        max-width: calc(100% - 16px);
+        margin-left: 8px;
+        margin-right: 8px;
+    }
+
+    .content-area {
+        padding: 16px 20px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.2rem;
+    }
+
+    h3 {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .content-area {
+        padding: 12px 14px;
+    }
+
+    .nav-btn {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+    }
+
+    h1 {
+        font-size: 1.3rem;
+    }
+
+    h2 {
+        font-size: 1.1rem;
+    }
+
+    pre {
+        font-size: 0.8rem;
+        padding: 10px;
+    }
+
+    table {
+        font-size: 0.85rem;
+    }
+
+    th, td {
+        padding: 6px 8px;
+    }
+
+    .marquee-text {
+        font-size: 0.75rem;
+    }
+}

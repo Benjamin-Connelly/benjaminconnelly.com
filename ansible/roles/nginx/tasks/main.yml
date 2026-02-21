@@ -1,0 +1,52 @@
+---
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Create webroot directory
+  ansible.builtin.file:
+    path: "{{ webroot }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Create research directory
+  ansible.builtin.file:
+    path: "{{ webroot }}/research"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy vhost configuration
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: /etc/nginx/sites-available/{{ domain }}.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Create htpasswd file
+  community.general.htpasswd:
+    path: /etc/nginx/.htpasswd
+    name: "{{ vault_htpasswd_user }}"
+    password: "{{ vault_htpasswd_password }}"
+    owner: root
+    group: www-data
+    mode: "0640"
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Enable site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/{{ domain }}.conf
+    dest: /etc/nginx/sites-enabled/{{ domain }}.conf
+    state: link
+  notify: Restart nginx

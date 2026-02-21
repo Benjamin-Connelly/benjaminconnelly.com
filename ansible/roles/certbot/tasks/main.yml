@@ -1,0 +1,29 @@
+---
+- name: Install certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Check if certificate exists
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ domain }}/fullchain.pem
+  register: cert_file
+
+- name: Obtain SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly --nginx
+      -d {{ domain }}
+      -d www.{{ domain }}
+      --email {{ certbot_email }}
+      --agree-tos
+      --non-interactive
+  when: not cert_file.stat.exists
+
+- name: Ensure certbot renewal timer is enabled
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started
