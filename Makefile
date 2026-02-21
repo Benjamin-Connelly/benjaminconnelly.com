@@ -5,8 +5,7 @@ SPONGE_DIR := /home/bconnelly/src/personal/sponge/sponge-stamps
 all: sync build
 
 sync:
-	rsync -av --delete $(SPONGE_DIR)/research/ site/content/research/sponge-stamps/
-	rsync -av --delete $(SPONGE_DIR)/procurement/ site/content/research/procurement/
+	@echo "Content is authored directly in site/content/ -- no external sync needed"
 
 build:
 	python3 site/build.py

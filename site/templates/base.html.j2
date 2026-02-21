@@ -22,7 +22,7 @@
         <span class="nav-sep">|</span>
         <a href="/research/" class="nav-btn">Research</a>
         <span class="nav-sep">|</span>
-        <a href="https://github.com/benjaminconnelly" class="nav-btn">GitHub</a>
+        <a href="https://github.com/benjamin-connelly" class="nav-btn">GitHub</a>
     </nav>
 
     <div class="page-frame">
@@ -33,11 +33,30 @@
 
     <div class="visitor-counter">
         <span class="counter-label">Visitors:</span>
-        <span class="counter-digits">001,337</span>
+        <span class="counter-digits" id="visitor-counter">36,218,042,113,697</span>
     </div>
 
     <footer class="site-footer">
         <p>Best viewed at 800x600 | No cookies. No trackers.</p>
     </footer>
+
+    <script>
+    (function() {
+        var el = document.getElementById('visitor-counter');
+        var base = 36218042113697;
+        var rate = 100000 / 1000;
+        var start = Date.now();
+        function fmt(n) {
+            return n.toLocaleString('en-US');
+        }
+        function tick() {
+            var elapsed = Date.now() - start;
+            var current = Math.floor(base + (elapsed * rate));
+            el.textContent = fmt(current);
+            requestAnimationFrame(tick);
+        }
+        tick();
+    })();
+    </script>
 </body>
 </html>
