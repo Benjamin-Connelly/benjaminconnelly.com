@@ -1,8 +1,8 @@
 # Benjamin Connelly
 
-Fun. Open source software. Monsters. Dark disco. Fixing things until they're broken.
+Open source. Monsters. Dark disco. Gripsweat. Fixing things until they're broken.
 
-I mass produce things nobody asked for and break the things people depend on. Somewhere between networking, security, and whatever "DevOps" means this week, I keep the lights on. When I'm not staring at a terminal I'm walking around photographing graffiti, cooking something questionable, feeding my sticker addiction, or at one red light and a mirrorball.
+Outside of tmux, I mass-produce the unnecessary and destabilize the essential. I map cities by graffiti and public art, preserve your abuela's recipes, distribute adhesive propaganda. Often, I'm in a dark room lit by a single red light and a mirrorball ("It's all work, there is no play").
 
 ## What I'm Up To
 
