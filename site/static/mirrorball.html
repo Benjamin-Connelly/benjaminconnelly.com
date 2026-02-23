@@ -84,17 +84,25 @@
 
   /* Modal key hints */
   .modal-keys {
-    position: absolute; bottom: 12px; right: 16px;
-    font: 11px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: rgba(255,255,255,0.35); pointer-events: none;
-    transition: opacity 0.2s ease;
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px; padding: 10px 22px;
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: rgba(255,255,255,0.75); white-space: nowrap;
+    pointer-events: none; z-index: 110;
+    display: none;
   }
+  @supports (backdrop-filter: blur(12px)) {
+    .modal-keys { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.35); }
+  }
+  #modal-backdrop.open ~ .modal-keys { display: block; }
   .modal-keys kbd {
-    font: inherit; background: rgba(255,255,255,0.08);
-    border-radius: 3px; padding: 1px 5px; margin: 0 1px;
+    font: inherit; background: rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 1px 6px; margin: 0 1px;
   }
-  .modal-keys span { opacity: 0.4; margin: 0 4px; }
-  @media (pointer: coarse) { .modal-keys { display: none; } }
+  .modal-keys span { opacity: 0.45; margin: 0 6px; }
+  @media (pointer: coarse) { .modal-keys { display: none !important; } }
 
   @media (max-width: 640px) {
     #modal-panel { width: 100%; max-width: none; margin: 8px; border-radius: 12px; }
@@ -125,7 +133,6 @@
 <div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div id="modal-panel">
     <button class="close" aria-label="Close">&times;</button>
-    <div class="modal-keys"><kbd>j</kbd><kbd>k</kbd> scroll <span>&middot;</span> <kbd>Esc</kbd> close</div>
     <h2 id="modal-title">The Physics of a Mirror Ball</h2>
     <div class="modal-body">
       <p>A mirror ball is an elegant demonstration of the law of reflection applied across hundreds of tiny mirrors arranged on a sphere. What appears as magical scattered light is actually straightforward geometric optics — each dot on the wall is a real image of the spotlight, reflected by one facet.</p>
@@ -183,6 +190,7 @@
     </div>
   </div>
 </div>
+<div class="modal-keys"><kbd>j</kbd><kbd>k</kbd> scroll <span>&middot;</span> <kbd>Esc</kbd> close</div>
 <script>
 // ── Tweakable Constants ──────────────────────────────────────────────────────
 const ROTATION_RPM      = 2.0;    // Ball spin speed (RPM)
