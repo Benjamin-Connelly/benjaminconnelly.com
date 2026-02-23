@@ -455,8 +455,16 @@ function frame(time) {
 }
 requestAnimationFrame(frame);
 </script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" crossorigin="anonymous"
-  onload="renderMathInElement(document.querySelector('.modal-body'),{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script>
+renderMathInElement(document.querySelector('.modal-body'), {
+  delimiters: [
+    { left: '$$', right: '$$', display: true },
+    { left: '\\(', right: '\\)', display: false }
+  ],
+  throwOnError: false
+});
+</script>
 </body>
 </html>
