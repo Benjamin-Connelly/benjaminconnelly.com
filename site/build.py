@@ -86,10 +86,12 @@ def build():
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
     md = markdown.Markdown(extensions=MD_EXTENSIONS)
 
-    # Process all markdown files
+    # Process all markdown files (skip index.md — homepage is discoball.html)
     md_files = sorted(CONTENT_DIR.rglob("*.md"))
 
     for md_file in md_files:
+        if md_file.relative_to(CONTENT_DIR) == Path("index.md"):
+            continue
         rel_path = md_file.relative_to(CONTENT_DIR)
         out_path = OUTPUT_DIR / build_output_path(rel_path)
 
@@ -114,6 +116,14 @@ def build():
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(rendered, encoding="utf-8")
+
+    # Use discoball as the homepage
+    disco_src = OUTPUT_DIR / "discoball.html"
+    disco_dst = OUTPUT_DIR / "index.html"
+    if disco_src.exists():
+        shutil.copy2(disco_src, disco_dst)
+        disco_src.unlink()
+        print("  Installed discoball.html as index.html")
 
     print(f"\n  Built {len(md_files)} pages to {OUTPUT_DIR}")
 
