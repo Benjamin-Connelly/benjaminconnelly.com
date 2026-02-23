@@ -1,7 +1,6 @@
 site/output/
 site/content/research/sponge-stamps/
 site/content/research/procurement/
-ansible/group_vars/vault.yml
 __pycache__/
 *.pyc
 .venv/
