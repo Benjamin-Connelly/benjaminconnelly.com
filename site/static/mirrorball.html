@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mirrorball</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" crossorigin="anonymous">
 <style>
   body { margin: 0; background: #000; overflow: hidden; cursor: none; }
   canvas { display: block; }
@@ -74,9 +75,8 @@
   .modal-body em { color: rgba(255,255,255,0.55); font-style: italic; }
   .modal-body code { background: rgba(255,255,255,0.08); border-radius: 3px;
     padding: 1px 5px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
-  .modal-body .eq { display: block; text-align: center; margin: 12px 0;
-    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px;
-    color: rgba(255,255,255,0.7); }
+  .modal-body .katex-display { margin: 16px 0; }
+  .modal-body .katex { color: rgba(255,255,255,0.85); font-size: 1.1em; }
   .modal-link {
     display: inline-block; margin: 0 32px 24px; padding: 8px 0;
     color: rgba(255,255,255,0.6); font: 14px/1 -apple-system, BlinkMacSystemFont, sans-serif;
@@ -120,20 +120,20 @@
       <p>The ball is not a curved mirror. It's a <em>piecewise-planar</em> mirror — each facet reflects independently, and the spherical arrangement samples many different normal directions.</p>
 
       <h3>The Law of Reflection</h3>
-      <p>For a facet with unit normal <code>n&#x0302;</code>, incoming light direction <code>L&#x0302;</code>, the reflected ray is:</p>
-      <span class="eq">R&#x0302; = L&#x0302; &minus; 2(L&#x0302; &middot; n&#x0302;)n&#x0302;</span>
-      <p>This is the vector form of "angle of incidence equals angle of reflection." The reflected ray lies in the plane defined by <code>L&#x0302;</code> and <code>n&#x0302;</code>, making equal angles on opposite sides of the normal.</p>
+      <p>For a facet with unit normal \(\hat{n}\), incoming light direction \(\hat{L}\), the reflected ray is:</p>
+      $$\hat{R} = \hat{L} - 2(\hat{L} \cdot \hat{n})\hat{n}$$
+      <p>This is the vector form of "angle of incidence equals angle of reflection." The reflected ray lies in the plane defined by \(\hat{L}\) and \(\hat{n}\), making equal angles on opposite sides of the normal.</p>
 
       <h3>Why the Dots Move</h3>
-      <p>As the ball rotates, each facet's normal changes direction in world space. A facet at spherical coordinates (&phi;, &theta;&#x2080;) gets its azimuthal angle shifted to &theta;&#x2080; + &theta;. Since the reflected direction depends on the normal, the beam sweeps across the room. With hundreds of facets at different latitudes and longitudes, you get the complex, interlocking pattern of moving dots.</p>
+      <p>As the ball rotates, each facet's normal changes direction in world space. A facet at spherical coordinates \((\phi, \theta_0)\) gets its azimuthal angle shifted to \(\theta_0 + \theta\). Since the reflected direction depends on the normal, the beam sweeps across the room. With hundreds of facets at different latitudes and longitudes, you get the complex, interlocking pattern of moving dots.</p>
 
-      <h3>2&times; Angular Amplification</h3>
-      <p>When a mirror rotates by angle &alpha;, the reflected beam rotates by <strong>2&alpha;</strong>. A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives mirror balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
+      <h3>2× Angular Amplification</h3>
+      <p>When a mirror rotates by angle \(\alpha\), the reflected beam rotates by \(\mathbf{2\alpha}\). A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives mirror balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
 
       <h3>Why Dots Twinkle</h3>
       <p><strong>Surface imperfections:</strong> Mirror tiles aren't perfectly flat — slight curvature from being pressed onto the sphere causes each facet's effective normal to fluctuate, making dots wobble and change intensity.</p>
-      <p><strong>Facet edges:</strong> Near the boundary where a facet transitions from facing the light to facing away (<code>L&#x0302; &middot; n&#x0302; &asymp; 0</code>), small angle changes produce large brightness changes — a rapid on/off flash.</p>
-      <p><strong>Specular falloff:</strong> Dot intensity follows a power law, concentrating brightness on nearly-aligned facets. Most produce dim reflections; a few produce bright flashes.</p>
+      <p><strong>Facet edges:</strong> Near the boundary where a facet transitions from facing the light to facing away (\(\hat{L} \cdot \hat{n} \approx 0\)), small angle changes produce large brightness changes — a rapid on/off flash.</p>
+      <p><strong>Specular falloff:</strong> Dot intensity follows a power law \((\hat{L} \cdot \hat{n})^k\), concentrating brightness on nearly-aligned facets. Most produce dim reflections; a few produce bright flashes.</p>
 
       <h3>Volumetric Beams</h3>
       <p>In hazy or smoky air, the actual beams connecting the ball to wall dots become visible. This is Tyndall scattering — the light illuminates suspended particles, making the beam path visible. Visibility depends on particle density, beam intensity, and viewing angle (brightest when viewed perpendicular to the beam).</p>
@@ -437,5 +437,8 @@ function frame(time) {
 }
 requestAnimationFrame(frame);
 </script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+  onload="renderMathInElement(document.querySelector('.modal-body'),{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
 </body>
 </html>
