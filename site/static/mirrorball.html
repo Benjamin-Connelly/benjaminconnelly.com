@@ -73,18 +73,12 @@
   .modal-body h3:first-child { margin-top: 0; }
   .modal-body p { margin: 0 0 12px; }
   .modal-body em { color: rgba(255,255,255,0.55); font-style: italic; }
+  .modal-body ul { margin: 8px 0 12px; padding-left: 24px; }
+  .modal-body li { margin: 4px 0; }
   .modal-body code { background: rgba(255,255,255,0.08); border-radius: 3px;
     padding: 1px 5px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
   .modal-body .katex-display { margin: 16px 0; }
   .modal-body .katex { color: rgba(255,255,255,0.85); font-size: 1.1em; }
-  .modal-link {
-    display: inline-block; margin: 0 32px 24px; padding: 8px 0;
-    color: rgba(255,255,255,0.6); font: 14px/1 -apple-system, BlinkMacSystemFont, sans-serif;
-    text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15);
-    transition: color 0.2s;
-  }
-  .modal-link:hover { color: #fff; }
-
   /* Custom scrollbar */
   .modal-body::-webkit-scrollbar { width: 6px; }
   .modal-body::-webkit-scrollbar-track { background: transparent; }
@@ -94,7 +88,6 @@
     #modal-panel { width: 100%; max-width: none; margin: 8px; border-radius: 12px; }
     .modal-body { padding: 16px 20px 24px; }
     #modal-panel h2 { padding: 24px 20px 0; font-size: 19px; }
-    .modal-link { margin: 0 20px 20px; }
     #help-pill { font-size: 11px; padding: 8px 16px; }
   }
 </style>
@@ -115,34 +108,59 @@
     <button class="close" aria-label="Close">&times;</button>
     <h2 id="modal-title">The Physics of a Mirror Ball</h2>
     <div class="modal-body">
-      <h3>Facets as Tiny Mirrors</h3>
-      <p>A mirror ball is covered with hundreds of small, flat mirror tiles — typically 1–2 cm square — glued to a spherical shell. Each tile is a plane mirror whose normal vector points radially outward. Because the sphere has curvature, adjacent facets point in slightly different directions, which is why reflected beams spread across the room instead of converging at one point.</p>
-      <p>The ball is not a curved mirror. It's a <em>piecewise-planar</em> mirror — each facet reflects independently, and the spherical arrangement samples many different normal directions.</p>
+      <p>A mirror ball is an elegant demonstration of the law of reflection applied across hundreds of tiny mirrors arranged on a sphere. What appears as magical scattered light is actually straightforward geometric optics — each dot on the wall is a real image of the spotlight, reflected by one facet.</p>
 
-      <h3>The Law of Reflection</h3>
-      <p>For a facet with unit normal \(\hat{n}\), incoming light direction \(\hat{L}\), the reflected ray is:</p>
+      <h3>1. Facets as Tiny Plane Mirrors</h3>
+      <p>A standard mirror ball is covered with small, flat, square mirrors — typically 1–2 cm on a side — glued to a spherical shell. Each mirror tile is a plane mirror whose normal vector \(\hat{n}\) points radially outward from the sphere's center. Because the sphere has curvature, adjacent facets point in slightly different directions, which is exactly why the reflected beams spread out across the room instead of all converging at one point.</p>
+      <p>The key insight: <strong>the ball is not a curved mirror</strong>. It's a <em>piecewise-planar</em> mirror. Each facet reflects independently according to the law of reflection, and the spherical arrangement simply provides a convenient way to sample many different normal directions.</p>
+
+      <h3>2. The Law of Reflection</h3>
+      <p>For a single facet with unit normal \(\hat{n}\), incoming light direction \(\hat{L}\) (pointing <em>toward</em> the facet), the reflected ray direction is:</p>
       $$\hat{R} = \hat{L} - 2(\hat{L} \cdot \hat{n})\hat{n}$$
-      <p>This is the vector form of "angle of incidence equals angle of reflection." The reflected ray lies in the plane defined by \(\hat{L}\) and \(\hat{n}\), making equal angles on opposite sides of the normal.</p>
+      <p>This is the vector form of "angle of incidence equals angle of reflection." The reflected ray \(\hat{R}\) lies in the plane defined by \(\hat{L}\) and \(\hat{n}\), and makes equal angles with \(\hat{n}\) on opposite sides.</p>
+      <p>In the simulation, we compute this for every facet on every frame. The incoming light direction \(\hat{L}\) comes from the spotlight (controlled by mouse position), and \(\hat{n}\) comes from the facet's position on the sphere (modified by rotation).</p>
 
-      <h3>Why the Dots Move</h3>
-      <p>As the ball rotates, each facet's normal changes direction in world space. A facet at spherical coordinates \((\phi, \theta_0)\) gets its azimuthal angle shifted to \(\theta_0 + \theta\). Since the reflected direction depends on the normal, the beam sweeps across the room. With hundreds of facets at different latitudes and longitudes, you get the complex, interlocking pattern of moving dots.</p>
+      <h3>3. Why the Dots Move</h3>
+      <p>As the ball rotates, each facet's normal vector \(\hat{n}\) changes direction in world space. If the ball rotates by angle \(\theta\) about the vertical axis, a facet at spherical coordinates \((\phi, \theta_0)\) has its azimuthal angle shifted to \(\theta_0 + \theta\). The normal becomes:</p>
+      $$\hat{n} = (\sin\phi\cos(\theta_0 + \theta),\; \cos\phi,\; \sin\phi\sin(\theta_0 + \theta))$$
+      <p>Since \(\hat{R}\) depends on \(\hat{n}\), the reflected beam sweeps across the room as the ball turns. Each facet traces out its own arc on the walls and ceiling, and with hundreds of facets all at different latitudes and longitudes, the result is a complex, interlocking pattern of moving dots.</p>
 
-      <h3>2× Angular Amplification</h3>
-      <p>When a mirror rotates by angle \(\alpha\), the reflected beam rotates by \(\mathbf{2\alpha}\). A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives mirror balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
+      <h3>4. The 2× Angular Amplification</h3>
+      <p>One of the most important properties of reflection: <strong>when a mirror rotates by angle \(\alpha\), the reflected beam rotates by \(2\alpha\)</strong>. This is why mirror ball dots move faster than you might expect — a ball spinning at 2 RPM produces dots that sweep at an angular rate equivalent to 4 RPM relative to the ball's rotation.</p>
+      <p>The proof is straightforward. If the normal rotates from \(\hat{n}\) to \(\hat{n}'\) (a rotation of \(\alpha\)), the change in reflection angle is:</p>
+      $$\Delta\theta_R = 2\alpha$$
+      <p>This amplification is what gives mirror balls their dynamic, energetic feel. Even a slowly spinning ball produces fast-moving dots, especially at higher latitudes where the facets have more angular velocity relative to the spotlight.</p>
 
-      <h3>Why Dots Twinkle</h3>
-      <p><strong>Surface imperfections:</strong> Mirror tiles aren't perfectly flat — slight curvature from being pressed onto the sphere causes each facet's effective normal to fluctuate, making dots wobble and change intensity.</p>
-      <p><strong>Facet edges:</strong> Near the boundary where a facet transitions from facing the light to facing away (\(\hat{L} \cdot \hat{n} \approx 0\)), small angle changes produce large brightness changes — a rapid on/off flash.</p>
-      <p><strong>Specular falloff:</strong> Dot intensity follows a power law \((\hat{L} \cdot \hat{n})^k\), concentrating brightness on nearly-aligned facets. Most produce dim reflections; a few produce bright flashes.</p>
+      <h3>5. Why Dots Twinkle</h3>
+      <p>Real mirror ball dots shimmer and flicker. Several effects contribute:</p>
+      <p><strong>Surface imperfections.</strong> The mirror tiles aren't perfectly flat — they have slight curvature from being pressed onto the sphere, and the adhesive creates minor warping. These imperfections cause each facet's effective normal to fluctuate slightly as the ball rotates, making the reflected dot wobble and change intensity.</p>
+      <p><strong>Facet edges.</strong> As the ball rotates, a facet transitions from facing the spotlight to facing away. Near the boundary (when \(\hat{L} \cdot \hat{n} \approx 0\)), small changes in angle produce large changes in brightness, creating a rapid on/off flash.</p>
+      <p><strong>Specular falloff.</strong> The intensity of the reflected dot depends on \((\hat{L} \cdot \hat{n})^k\) — a power-law falloff that concentrates brightness on facets that are nearly perfectly aligned with the light source. Most facets produce dim reflections; a few produce bright flashes.</p>
+      <p>In the simulation, we model this with a shimmer term: a sinusoidal perturbation to each facet's normal vector, with random phase offsets per facet, producing the characteristic twinkling effect.</p>
 
-      <h3>Volumetric Beams</h3>
-      <p>In hazy or smoky air, the actual beams connecting the ball to wall dots become visible. This is Tyndall scattering — the light illuminates suspended particles, making the beam path visible. Visibility depends on particle density, beam intensity, and viewing angle (brightest when viewed perpendicular to the beam).</p>
+      <h3>6. Volumetric Beams (the "God Rays")</h3>
+      <p>In a hazy or smoky room, you can see the actual beams of light connecting the ball to the dots on the walls. This is Tyndall scattering (or Mie scattering for larger particles): the light beam illuminates suspended particles in the air, making the beam path visible.</p>
+      <p>The beam from each facet follows the reflected ray direction \(\hat{R}\), originating at the facet's position on the ball's surface. The visibility of the beam depends on:</p>
+      <ul>
+        <li><strong>Particle density</strong>: more haze = more visible beams</li>
+        <li><strong>Beam intensity</strong>: brighter reflections produce more visible beams</li>
+        <li><strong>Viewing angle</strong>: beams are brightest when viewed from the side (90° to the beam), due to the angular dependence of Mie scattering</li>
+      </ul>
+      <p>In the simulation, we approximate this with semi-transparent triangular gradients emanating from the ball center, rotating with the ball. It's a visual approximation rather than a physical simulation, but captures the aesthetic effect.</p>
 
-      <h3>From Physics to Pixels</h3>
-      <p>The simulation maps each 3D reflected ray to screen coordinates using equirectangular projection — the same mapping used for panoramic photos. Each dot renders as a radial gradient: a bright core simulating the specular reflection, surrounded by a soft halo simulating bloom and atmospheric scattering. Color shifts toward white at high intensity, simulating photographic overexposure.</p>
-      <p><em>Real-time Canvas 2D — no WebGL, no dependencies. ~500 facets at 60 fps.</em></p>
+      <h3>7. From Physics to Pixels</h3>
+      <p>The simulation maps the 3D reflected ray \(\hat{R}\) to 2D screen coordinates using a spherical projection:</p>
+      $$x_{\text{screen}} = \frac{W}{2} + \frac{\text{atan2}(R_z, R_x)}{\pi} \cdot \frac{W}{2}$$
+      $$y_{\text{screen}} = \frac{H}{2} - \frac{\arcsin(R_y)}{\pi/2} \cdot \frac{H}{2}$$
+      <p>This wraps the full sphere of possible reflection directions onto the rectangular screen, with the forward direction (\(+z\)) centered. It's an equirectangular projection — the same mapping used for panoramic photos and environment maps.</p>
+      <p>Each dot is rendered as a radial gradient with two components:</p>
+      <ul>
+        <li>A <strong>bright core</strong> with radius proportional to \((\hat{L} \cdot \hat{n})^{1.7}\), simulating the concentrated specular reflection</li>
+        <li>A <strong>soft halo</strong> with larger radius, simulating bloom and atmospheric scattering</li>
+      </ul>
+      <p>The color shifts toward white at high intensity, simulating photographic overexposure — the same reason bright lights look white regardless of their actual color.</p>
+      <p><em>The full simulation runs in real-time using Canvas 2D, with no WebGL or external dependencies. All physics calculations happen on the CPU at 60 fps for ~500 facets.</em></p>
     </div>
-    <a class="modal-link" href="docs/physics-mirrorball.md" target="_blank" rel="noopener">Read the full derivation &rarr;</a>
   </div>
 </div>
 <script>
