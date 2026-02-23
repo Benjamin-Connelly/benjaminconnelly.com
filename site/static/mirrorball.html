@@ -82,6 +82,20 @@
   .modal-body::-webkit-scrollbar-track { background: transparent; }
   .modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
+  /* Modal key hints */
+  .modal-keys {
+    position: absolute; bottom: 12px; right: 16px;
+    font: 11px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: rgba(255,255,255,0.35); pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-keys kbd {
+    font: inherit; background: rgba(255,255,255,0.08);
+    border-radius: 3px; padding: 1px 5px; margin: 0 1px;
+  }
+  .modal-keys span { opacity: 0.4; margin: 0 4px; }
+  @media (pointer: coarse) { .modal-keys { display: none; } }
+
   @media (max-width: 640px) {
     #modal-panel { width: 100%; max-width: none; margin: 8px; border-radius: 12px; }
     .modal-body { padding: 16px 20px 24px; }
@@ -111,6 +125,7 @@
 <div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div id="modal-panel">
     <button class="close" aria-label="Close">&times;</button>
+    <div class="modal-keys"><kbd>j</kbd><kbd>k</kbd> scroll <span>&middot;</span> <kbd>Esc</kbd> close</div>
     <h2 id="modal-title">The Physics of a Mirror Ball</h2>
     <div class="modal-body">
       <p>A mirror ball is an elegant demonstration of the law of reflection applied across hundreds of tiny mirrors arranged on a sphere. What appears as magical scattered light is actually straightforward geometric optics — each dot on the wall is a real image of the spotlight, reflected by one facet.</p>
