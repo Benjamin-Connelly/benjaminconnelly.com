@@ -96,8 +96,8 @@
 <canvas id="c"></canvas>
 <div class="paused" id="pauseLabel">PAUSED</div>
 <div id="help-pill">
-  mouse: light angle <span>&middot;</span>
-  scroll: speed <span>&middot;</span>
+  <kbd>&uarr;&darr;&larr;&rarr;</kbd> light <span>&middot;</span>
+  <kbd>[ ]</kbd> speed <span>&middot;</span>
   <kbd>Space</kbd> pause <span>&middot;</span>
   <kbd>H</kbd> help <span>&middot;</span>
   <button id="btn-physics" type="button">Physics</button>
@@ -239,13 +239,33 @@ addEventListener('mousemove', e => {
   state.tly = -((e.clientY / H) * 2 - 1);
   state.tlz = 0.6;
 });
+// Touch: 1 finger = light angle, 2 fingers = speed, double-tap = pause
+let lastTouchY = 0;
+let lastTapTime = 0;
+addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+  }
+  if (e.touches.length === 1) {
+    const now = Date.now();
+    if (now - lastTapTime < 300) togglePause();
+    lastTapTime = now;
+  }
+}, { passive: true });
 addEventListener('touchmove', e => {
   e.preventDefault();
-  const t = e.touches[0];
-  state.mouseX = t.clientX; state.mouseY = t.clientY; state.mouseActive = true;
-  state.tlx = (t.clientX / W) * 2 - 1;
-  state.tly = -((t.clientY / H) * 2 - 1);
-  state.tlz = 0.6;
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    state.mouseX = t.clientX; state.mouseY = t.clientY; state.mouseActive = true;
+    state.tlx = (t.clientX / W) * 2 - 1;
+    state.tly = -((t.clientY / H) * 2 - 1);
+    state.tlz = 0.6;
+  } else if (e.touches.length === 2) {
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    const dy = lastTouchY - midY;
+    state.rpm = Math.max(0.1, Math.min(8.0, state.rpm + dy * 0.01));
+    lastTouchY = midY;
+  }
 }, { passive: false });
 addEventListener('wheel', e => {
   state.rpm = Math.max(0.1, Math.min(8.0, state.rpm + e.deltaY * 0.002));
@@ -302,11 +322,27 @@ addEventListener('keydown', e => {
       break;
     case 'ArrowLeft':
       e.preventDefault();
-      state.rpm = Math.max(0.1, state.rpm - 0.3);
+      state.tlx = Math.max(-1, state.tlx - 0.05);
       break;
     case 'ArrowRight':
       e.preventDefault();
+      state.tlx = Math.min(1, state.tlx + 0.05);
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      state.tly = Math.min(1, state.tly + 0.05);
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      state.tly = Math.max(-1, state.tly - 0.05);
+      break;
+    case 'BracketRight':
+      e.preventDefault();
       state.rpm = Math.min(8.0, state.rpm + 0.3);
+      break;
+    case 'BracketLeft':
+      e.preventDefault();
+      state.rpm = Math.max(0.1, state.rpm - 0.3);
       break;
     case 'KeyH':
       e.preventDefault();
