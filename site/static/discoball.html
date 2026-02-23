@@ -7,17 +7,144 @@
 <style>
   body { margin: 0; background: #000; overflow: hidden; cursor: none; }
   canvas { display: block; }
-  .info { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
-    color: rgba(255,255,255,0.35); font: 12px/1 monospace; pointer-events: none; }
   .paused { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
     color: rgba(255,255,255,0.25); font: bold 32px/1 monospace; pointer-events: none;
     display: none; letter-spacing: 0.3em; }
+
+  /* Help pill */
+  #help-pill {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px; padding: 10px 22px;
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: rgba(255,255,255,0.75); white-space: nowrap;
+    pointer-events: none; z-index: 10;
+    animation: fadeIn 1.2s ease-out;
+    transition: opacity 0.3s ease;
+  }
+  @supports (backdrop-filter: blur(12px)) {
+    #help-pill { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.35); }
+  }
+  #help-pill.hidden { opacity: 0; pointer-events: none; }
+  #help-pill span { opacity: 0.45; margin: 0 6px; }
+  #help-pill kbd { font: inherit; background: rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 1px 6px; margin: 0 1px; }
+  #help-pill button { background: none; border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.75); border-radius: 12px; padding: 2px 10px;
+    font: inherit; cursor: pointer; pointer-events: auto; }
+  #help-pill button:hover { background: rgba(255,255,255,0.1); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+  /* Modal */
+  #modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 100; display: none; align-items: center; justify-content: center;
+    cursor: auto;
+  }
+  @supports (backdrop-filter: blur(4px)) {
+    #modal-backdrop { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  }
+  #modal-backdrop.open { display: flex; }
+  #modal-panel {
+    background: rgba(20,18,28,0.95); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; max-width: 680px; width: 92%; max-height: 85vh;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6); display: flex; flex-direction: column;
+    position: relative;
+  }
+  #modal-panel .close {
+    position: absolute; top: 12px; right: 16px; background: none; border: none;
+    color: rgba(255,255,255,0.5); font-size: 22px; cursor: pointer; padding: 4px 8px;
+    line-height: 1; z-index: 1;
+  }
+  #modal-panel .close:hover { color: #fff; }
+  #modal-panel h2 {
+    font: 600 22px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #fff; margin: 0; padding: 28px 32px 0;
+  }
+  .modal-body {
+    padding: 20px 32px 28px; overflow-y: auto; max-height: 70vh;
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: rgba(255,255,255,0.8);
+  }
+  .modal-body h3 { color: #fff; font-size: 16px; margin: 24px 0 8px; }
+  .modal-body h3:first-child { margin-top: 0; }
+  .modal-body p { margin: 0 0 12px; }
+  .modal-body em { color: rgba(255,255,255,0.55); font-style: italic; }
+  .modal-body code { background: rgba(255,255,255,0.08); border-radius: 3px;
+    padding: 1px 5px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+  .modal-body .eq { display: block; text-align: center; margin: 12px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px;
+    color: rgba(255,255,255,0.7); }
+  .modal-link {
+    display: inline-block; margin: 0 32px 24px; padding: 8px 0;
+    color: rgba(255,255,255,0.6); font: 14px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15);
+    transition: color 0.2s;
+  }
+  .modal-link:hover { color: #fff; }
+
+  /* Custom scrollbar */
+  .modal-body::-webkit-scrollbar { width: 6px; }
+  .modal-body::-webkit-scrollbar-track { background: transparent; }
+  .modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    #modal-panel { width: 100%; max-width: none; margin: 8px; border-radius: 12px; }
+    .modal-body { padding: 16px 20px 24px; }
+    #modal-panel h2 { padding: 24px 20px 0; font-size: 19px; }
+    .modal-link { margin: 0 20px 20px; }
+    #help-pill { font-size: 11px; padding: 8px 16px; }
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div class="paused" id="pauseLabel">PAUSED</div>
-<div class="info">scroll: speed &middot; click: pause</div>
+<div id="help-pill">
+  mouse: light angle <span>&middot;</span>
+  scroll: speed <span>&middot;</span>
+  <kbd>Space</kbd> pause <span>&middot;</span>
+  <kbd>H</kbd> help <span>&middot;</span>
+  <button id="btn-physics" type="button">Physics</button>
+</div>
+
+<div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal-panel">
+    <button class="close" aria-label="Close">&times;</button>
+    <h2 id="modal-title">The Physics of a Disco Ball</h2>
+    <div class="modal-body">
+      <h3>Facets as Tiny Mirrors</h3>
+      <p>A disco ball is covered with hundreds of small, flat mirror tiles — typically 1–2 cm square — glued to a spherical shell. Each tile is a plane mirror whose normal vector points radially outward. Because the sphere has curvature, adjacent facets point in slightly different directions, which is why reflected beams spread across the room instead of converging at one point.</p>
+      <p>The ball is not a curved mirror. It's a <em>piecewise-planar</em> mirror — each facet reflects independently, and the spherical arrangement samples many different normal directions.</p>
+
+      <h3>The Law of Reflection</h3>
+      <p>For a facet with unit normal <code>n&#x0302;</code>, incoming light direction <code>L&#x0302;</code>, the reflected ray is:</p>
+      <span class="eq">R&#x0302; = L&#x0302; &minus; 2(L&#x0302; &middot; n&#x0302;)n&#x0302;</span>
+      <p>This is the vector form of "angle of incidence equals angle of reflection." The reflected ray lies in the plane defined by <code>L&#x0302;</code> and <code>n&#x0302;</code>, making equal angles on opposite sides of the normal.</p>
+
+      <h3>Why the Dots Move</h3>
+      <p>As the ball rotates, each facet's normal changes direction in world space. A facet at spherical coordinates (&phi;, &theta;&#x2080;) gets its azimuthal angle shifted to &theta;&#x2080; + &theta;. Since the reflected direction depends on the normal, the beam sweeps across the room. With hundreds of facets at different latitudes and longitudes, you get the complex, interlocking pattern of moving dots.</p>
+
+      <h3>2&times; Angular Amplification</h3>
+      <p>When a mirror rotates by angle &alpha;, the reflected beam rotates by <strong>2&alpha;</strong>. A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives disco balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
+
+      <h3>Why Dots Twinkle</h3>
+      <p><strong>Surface imperfections:</strong> Mirror tiles aren't perfectly flat — slight curvature from being pressed onto the sphere causes each facet's effective normal to fluctuate, making dots wobble and change intensity.</p>
+      <p><strong>Facet edges:</strong> Near the boundary where a facet transitions from facing the light to facing away (<code>L&#x0302; &middot; n&#x0302; &asymp; 0</code>), small angle changes produce large brightness changes — a rapid on/off flash.</p>
+      <p><strong>Specular falloff:</strong> Dot intensity follows a power law, concentrating brightness on nearly-aligned facets. Most produce dim reflections; a few produce bright flashes.</p>
+
+      <h3>Volumetric Beams</h3>
+      <p>In hazy or smoky air, the actual beams connecting the ball to wall dots become visible. This is Tyndall scattering — the light illuminates suspended particles, making the beam path visible. Visibility depends on particle density, beam intensity, and viewing angle (brightest when viewed perpendicular to the beam).</p>
+
+      <h3>From Physics to Pixels</h3>
+      <p>The simulation maps each 3D reflected ray to screen coordinates using equirectangular projection — the same mapping used for panoramic photos. Each dot renders as a radial gradient: a bright core simulating the specular reflection, surrounded by a soft halo simulating bloom and atmospheric scattering. Color shifts toward white at high intensity, simulating photographic overexposure.</p>
+      <p><em>Real-time Canvas 2D — no WebGL, no dependencies. ~500 facets at 60 fps.</em></p>
+    </div>
+    <a class="modal-link" href="docs/physics-discoball.md" target="_blank" rel="noopener">Read the full derivation &rarr;</a>
+  </div>
+</div>
 <script>
 // ── Tweakable Constants ──────────────────────────────────────────────────────
 const ROTATION_RPM      = 2.0;    // Ball spin speed (RPM)
@@ -69,15 +196,18 @@ for (let row = 0; row < FACET_ROWS; row++) {
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
-let rpm = ROTATION_RPM;
-let paused = false;
-let rotation = 0;
-let lastTime = 0;
-let mouseX = 0, mouseY = 0, mouseActive = false;
-
-// Smoothed and target light direction
-let lx = 0, ly = -0.5, lz = 0.6;
-let tlx = 0, tly = -0.5, tlz = 0.6;
+const state = {
+  rpm: ROTATION_RPM,
+  paused: false,
+  rotation: 0,
+  modalOpen: false,
+  helpVisible: true,
+  mouseActive: false,
+  mouseX: 0, mouseY: 0,
+  lx: 0, ly: -0.5, lz: 0.6,
+  tlx: 0, tly: -0.5, tlz: 0.6,
+  lastTime: 0
+};
 
 // Reusable vectors (Float64Array for precision)
 const N = new Float64Array(3);
@@ -86,40 +216,107 @@ const R = new Float64Array(3);
 
 // ── Interaction ──────────────────────────────────────────────────────────────
 addEventListener('mousemove', e => {
-  mouseX = e.clientX; mouseY = e.clientY; mouseActive = true;
-  tlx = (e.clientX / W) * 2 - 1;
-  tly = -((e.clientY / H) * 2 - 1);
-  tlz = 0.6;
+  state.mouseX = e.clientX; state.mouseY = e.clientY; state.mouseActive = true;
+  state.tlx = (e.clientX / W) * 2 - 1;
+  state.tly = -((e.clientY / H) * 2 - 1);
+  state.tlz = 0.6;
 });
 addEventListener('touchmove', e => {
   e.preventDefault();
   const t = e.touches[0];
-  mouseX = t.clientX; mouseY = t.clientY; mouseActive = true;
-  tlx = (t.clientX / W) * 2 - 1;
-  tly = -((t.clientY / H) * 2 - 1);
-  tlz = 0.6;
+  state.mouseX = t.clientX; state.mouseY = t.clientY; state.mouseActive = true;
+  state.tlx = (t.clientX / W) * 2 - 1;
+  state.tly = -((t.clientY / H) * 2 - 1);
+  state.tlz = 0.6;
 }, { passive: false });
 addEventListener('wheel', e => {
-  rpm = Math.max(0.1, Math.min(8.0, rpm + e.deltaY * 0.002));
+  state.rpm = Math.max(0.1, Math.min(8.0, state.rpm + e.deltaY * 0.002));
 });
-addEventListener('click', () => {
-  paused = !paused;
-  document.getElementById('pauseLabel').style.display = paused ? 'block' : 'none';
+canvas.addEventListener('click', () => togglePause());
+
+// ── Modal & Help ────────────────────────────────────────────────────────────
+const helpPill = document.getElementById('help-pill');
+const backdrop = document.getElementById('modal-backdrop');
+const modalPanel = document.getElementById('modal-panel');
+
+function openModal() {
+  state.modalOpen = true;
+  backdrop.classList.add('open');
+  document.body.style.cursor = 'auto';
+  modalPanel.querySelector('.close').focus();
+}
+
+function closeModal() {
+  state.modalOpen = false;
+  backdrop.classList.remove('open');
+  document.body.style.cursor = 'none';
+}
+
+function toggleHelp() {
+  state.helpVisible = !state.helpVisible;
+  helpPill.classList.toggle('hidden', !state.helpVisible);
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  document.getElementById('pauseLabel').style.display = state.paused ? 'block' : 'none';
+}
+
+// Modal triggers
+document.getElementById('btn-physics').addEventListener('click', e => {
+  e.stopPropagation();
+  openModal();
+});
+modalPanel.querySelector('.close').addEventListener('click', closeModal);
+backdrop.addEventListener('click', e => {
+  if (e.target === backdrop) closeModal();
+});
+
+// ── Keyboard ────────────────────────────────────────────────────────────────
+addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault();
+      togglePause();
+      break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      state.rpm = Math.max(0.1, state.rpm - 0.3);
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      state.rpm = Math.min(8.0, state.rpm + 0.3);
+      break;
+    case 'KeyH':
+      e.preventDefault();
+      toggleHelp();
+      break;
+    case 'KeyM':
+      e.preventDefault();
+      openModal();
+      break;
+    case 'Escape':
+      if (state.modalOpen) { e.preventDefault(); closeModal(); }
+      break;
+  }
 });
 
 // ── Render Loop ──────────────────────────────────────────────────────────────
 function frame(time) {
   requestAnimationFrame(frame);
-  const dt = lastTime ? (time - lastTime) / 1000 : 0;
-  lastTime = time;
-  if (!paused) rotation += rpm * (2 * Math.PI / 60) * dt;
+  const dt = state.lastTime ? (time - state.lastTime) / 1000 : 0;
+  state.lastTime = time;
+  if (!state.paused) state.rotation += state.rpm * (2 * Math.PI / 60) * dt;
 
   // Smooth light direction toward target
-  lx += (tlx - lx) * LIGHT_SMOOTHING;
-  ly += (tly - ly) * LIGHT_SMOOTHING;
-  lz += (tlz - lz) * LIGHT_SMOOTHING;
-  const lLen = Math.sqrt(lx * lx + ly * ly + lz * lz);
-  L[0] = lx / lLen; L[1] = ly / lLen; L[2] = lz / lLen;
+  state.lx += (state.tlx - state.lx) * LIGHT_SMOOTHING;
+  state.ly += (state.tly - state.ly) * LIGHT_SMOOTHING;
+  state.lz += (state.tlz - state.lz) * LIGHT_SMOOTHING;
+  const lLen = Math.sqrt(state.lx * state.lx + state.ly * state.ly + state.lz * state.lz);
+  L[0] = state.lx / lLen; L[1] = state.ly / lLen; L[2] = state.lz / lLen;
 
   const cx = W / 2, cy = H / 2;
   const t = time * 0.001;
@@ -130,13 +327,13 @@ function frame(time) {
   ctx.fillRect(0, 0, W, H);
 
   // ── Layer 2: Cursor glow (spotlight source) ────────────────────────────────
-  if (mouseActive) {
+  if (state.mouseActive) {
     const r = 180 * scale;
-    const cg = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, r);
+    const cg = ctx.createRadialGradient(state.mouseX, state.mouseY, 0, state.mouseX, state.mouseY, r);
     cg.addColorStop(0, `rgba(${LIGHT_R},${LIGHT_G},${LIGHT_B},0.10)`);
     cg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = cg;
-    ctx.fillRect(mouseX - r, mouseY - r, r * 2, r * 2);
+    ctx.fillRect(state.mouseX - r, state.mouseY - r, r * 2, r * 2);
   }
 
   // ── Layer 3: Center glow (ambient scatter from ball body) ──────────────────
@@ -151,7 +348,7 @@ function frame(time) {
   ctx.globalCompositeOperation = 'lighter';
   const beamLen = Math.max(W, H) * 0.9;
   for (let i = 0; i < BEAM_COUNT; i++) {
-    const base = (i / BEAM_COUNT) * Math.PI * 2 + rotation * 0.5;
+    const base = (i / BEAM_COUNT) * Math.PI * 2 + state.rotation * 0.5;
     const wobble = Math.sin(t + i * 2.1) * 0.04;
     const angle = base + wobble;
     const spread = 0.035;
@@ -171,7 +368,7 @@ function frame(time) {
   // ── Layer 5: Reflected light dots ──────────────────────────────────────────
   for (let i = 0; i < facets.length; i++) {
     const f = facets[i];
-    const theta = f.theta + rotation;
+    const theta = f.theta + state.rotation;
     const sinPhi = Math.sin(f.phi), cosPhi = Math.cos(f.phi);
 
     // Facet normal (Y-axis rotation baked into theta)
