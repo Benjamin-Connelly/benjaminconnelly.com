@@ -99,10 +99,10 @@
 <div class="paused" id="pauseLabel">PAUSED</div>
 <div id="help-pill">
   <span class="desktop-help">
-    <kbd>&uarr;&darr;&larr;&rarr;</kbd> light <span>&middot;</span>
-    <kbd>[ ]</kbd> speed <span>&middot;</span>
+    <kbd>hjkl</kbd> light <span>&middot;</span>
+    <kbd>&larr;&rarr;</kbd> speed <span>&middot;</span>
     <kbd>Space</kbd> pause <span>&middot;</span>
-    <kbd>H</kbd> help <span>&middot;</span>
+    <kbd>?</kbd> help <span>&middot;</span>
   </span>
   <span class="touch-help">
     1 finger: light <span>&middot;</span>
@@ -330,33 +330,32 @@ addEventListener('keydown', e => {
       e.preventDefault();
       togglePause();
       break;
-    case 'ArrowLeft':
-      e.preventDefault();
-      state.tlx = Math.max(-1, state.tlx - 0.05);
-      break;
-    case 'ArrowRight':
-      e.preventDefault();
-      state.tlx = Math.min(1, state.tlx + 0.05);
-      break;
-    case 'ArrowUp':
+    // Light angle: arrows + hjkl (vim)
+    case 'ArrowUp': case 'KeyK':
       e.preventDefault();
       state.tly = Math.min(1, state.tly + 0.05);
       break;
-    case 'ArrowDown':
+    case 'ArrowDown': case 'KeyJ':
       e.preventDefault();
       state.tly = Math.max(-1, state.tly - 0.05);
       break;
-    case 'BracketRight':
+    case 'KeyH':
+      // h = light left (vim), but also toggle help — use shift for help
       e.preventDefault();
-      state.rpm = Math.min(8.0, state.rpm + 0.3);
+      state.tlx = Math.max(-1, state.tlx - 0.05);
       break;
-    case 'BracketLeft':
+    case 'KeyL':
+      e.preventDefault();
+      state.tlx = Math.min(1, state.tlx + 0.05);
+      break;
+    // Speed: arrows left/right, ; ], [ (vim-adjacent)
+    case 'ArrowLeft': case 'BracketLeft':
       e.preventDefault();
       state.rpm = Math.max(0.1, state.rpm - 0.3);
       break;
-    case 'KeyH':
+    case 'ArrowRight': case 'Semicolon': case 'BracketRight':
       e.preventDefault();
-      toggleHelp();
+      state.rpm = Math.min(8.0, state.rpm + 0.3);
       break;
     case 'KeyM':
       e.preventDefault();
@@ -364,6 +363,10 @@ addEventListener('keydown', e => {
       break;
     case 'Escape':
       if (state.modalOpen) { e.preventDefault(); closeModal(); }
+      break;
+    default:
+      // ? = toggle help (Shift+/ on US layout)
+      if (e.key === '?') { e.preventDefault(); toggleHelp(); }
       break;
   }
 });
