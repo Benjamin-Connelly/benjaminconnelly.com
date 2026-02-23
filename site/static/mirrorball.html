@@ -313,9 +313,31 @@ backdrop.addEventListener('click', e => {
 });
 
 // ── Keyboard ────────────────────────────────────────────────────────────────
+const modalBody = document.querySelector('.modal-body');
+const SCROLL_STEP = 60;
+
 addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+
+  // Modal open: vim keys scroll the modal
+  if (state.modalOpen) {
+    switch (e.code) {
+      case 'KeyJ': case 'ArrowDown':
+        e.preventDefault();
+        modalBody.scrollBy(0, SCROLL_STEP);
+        return;
+      case 'KeyK': case 'ArrowUp':
+        e.preventDefault();
+        modalBody.scrollBy(0, -SCROLL_STEP);
+        return;
+      case 'Escape':
+        e.preventDefault();
+        closeModal();
+        return;
+    }
+    return;
+  }
 
   switch (e.code) {
     case 'Space':
@@ -332,7 +354,6 @@ addEventListener('keydown', e => {
       state.tly = Math.max(-1, state.tly - 0.05);
       break;
     case 'KeyH':
-      // h = light left (vim), but also toggle help — use shift for help
       e.preventDefault();
       state.tlx = Math.max(-1, state.tlx - 0.05);
       break;
@@ -354,10 +375,8 @@ addEventListener('keydown', e => {
       openModal();
       break;
     case 'Escape':
-      if (state.modalOpen) { e.preventDefault(); closeModal(); }
       break;
     default:
-      // ? = toggle help (Shift+/ on US layout)
       if (e.key === '?') { e.preventDefault(); toggleHelp(); }
       break;
   }
