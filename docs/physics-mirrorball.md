@@ -1,12 +1,12 @@
-# The Physics of a Disco Ball
+# The Physics of a Mirror Ball
 
-A disco ball is an elegant demonstration of the law of reflection applied across hundreds of tiny mirrors arranged on a sphere. What appears as magical scattered light is actually straightforward geometric optics — each dot on the wall is a real image of the spotlight, reflected by one facet.
+A mirror ball is an elegant demonstration of the law of reflection applied across hundreds of tiny mirrors arranged on a sphere. What appears as magical scattered light is actually straightforward geometric optics — each dot on the wall is a real image of the spotlight, reflected by one facet.
 
 ---
 
 ## 1. Facets as Tiny Plane Mirrors
 
-A standard disco ball is covered with small, flat, square mirrors — typically 1–2 cm on a side — glued to a spherical shell. Each mirror tile is a plane mirror whose normal vector $\hat{n}$ points radially outward from the sphere's center. Because the sphere has curvature, adjacent facets point in slightly different directions, which is exactly why the reflected beams spread out across the room instead of all converging at one point.
+A standard mirror ball is covered with small, flat, square mirrors — typically 1–2 cm on a side — glued to a spherical shell. Each mirror tile is a plane mirror whose normal vector $\hat{n}$ points radially outward from the sphere's center. Because the sphere has curvature, adjacent facets point in slightly different directions, which is exactly why the reflected beams spread out across the room instead of all converging at one point.
 
 The key insight: **the ball is not a curved mirror**. It's a *piecewise-planar* mirror. Each facet reflects independently according to the law of reflection, and the spherical arrangement simply provides a convenient way to sample many different normal directions.
 
@@ -36,19 +36,19 @@ Since $\hat{R}$ depends on $\hat{n}$, the reflected beam sweeps across the room 
 
 ## 4. The 2× Angular Amplification
 
-One of the most important properties of reflection: **when a mirror rotates by angle $\alpha$, the reflected beam rotates by $2\alpha$**. This is why disco ball dots move faster than you might expect — a ball spinning at 2 RPM produces dots that sweep at an angular rate equivalent to 4 RPM relative to the ball's rotation.
+One of the most important properties of reflection: **when a mirror rotates by angle $\alpha$, the reflected beam rotates by $2\alpha$**. This is why mirror ball dots move faster than you might expect — a ball spinning at 2 RPM produces dots that sweep at an angular rate equivalent to 4 RPM relative to the ball's rotation.
 
 The proof is straightforward. If the normal rotates from $\hat{n}$ to $\hat{n}'$ (a rotation of $\alpha$), the change in reflection angle is:
 
 $$\Delta\theta_R = 2\alpha$$
 
-This amplification is what gives disco balls their dynamic, energetic feel. Even a slowly spinning ball produces fast-moving dots, especially at higher latitudes where the facets have more angular velocity relative to the spotlight.
+This amplification is what gives mirror balls their dynamic, energetic feel. Even a slowly spinning ball produces fast-moving dots, especially at higher latitudes where the facets have more angular velocity relative to the spotlight.
 
 ---
 
 ## 5. Why Dots Twinkle
 
-Real disco ball dots shimmer and flicker. Several effects contribute:
+Real mirror ball dots shimmer and flicker. Several effects contribute:
 
 **Surface imperfections.** The mirror tiles aren't perfectly flat — they have slight curvature from being pressed onto the sphere, and the adhesive creates minor warping. These imperfections cause each facet's effective normal to fluctuate slightly as the ball rotates, making the reflected dot wobble and change intensity.
 

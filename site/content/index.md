@@ -1,6 +1,6 @@
 # Benjamin Connelly
 
-Open source. Monsters. Dark disco. Gripsweat. Fixing things until they're broken.
+Open source. Monsters. Mirrorball. Gripsweat. Fixing things until they're broken.
 
 Outside of tmux, I mass-produce the unnecessary and destabilize the essential. I map cities by graffiti and public art, preserve your abuela's recipes, distribute adhesive propaganda. Often, I'm in a dark room lit by a single red light and a mirrorball ("It's all work, there is no play").
 

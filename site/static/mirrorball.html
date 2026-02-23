@@ -113,10 +113,10 @@
 <div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div id="modal-panel">
     <button class="close" aria-label="Close">&times;</button>
-    <h2 id="modal-title">The Physics of a Disco Ball</h2>
+    <h2 id="modal-title">The Physics of a Mirror Ball</h2>
     <div class="modal-body">
       <h3>Facets as Tiny Mirrors</h3>
-      <p>A disco ball is covered with hundreds of small, flat mirror tiles — typically 1–2 cm square — glued to a spherical shell. Each tile is a plane mirror whose normal vector points radially outward. Because the sphere has curvature, adjacent facets point in slightly different directions, which is why reflected beams spread across the room instead of converging at one point.</p>
+      <p>A mirror ball is covered with hundreds of small, flat mirror tiles — typically 1–2 cm square — glued to a spherical shell. Each tile is a plane mirror whose normal vector points radially outward. Because the sphere has curvature, adjacent facets point in slightly different directions, which is why reflected beams spread across the room instead of converging at one point.</p>
       <p>The ball is not a curved mirror. It's a <em>piecewise-planar</em> mirror — each facet reflects independently, and the spherical arrangement samples many different normal directions.</p>
 
       <h3>The Law of Reflection</h3>
@@ -128,7 +128,7 @@
       <p>As the ball rotates, each facet's normal changes direction in world space. A facet at spherical coordinates (&phi;, &theta;&#x2080;) gets its azimuthal angle shifted to &theta;&#x2080; + &theta;. Since the reflected direction depends on the normal, the beam sweeps across the room. With hundreds of facets at different latitudes and longitudes, you get the complex, interlocking pattern of moving dots.</p>
 
       <h3>2&times; Angular Amplification</h3>
-      <p>When a mirror rotates by angle &alpha;, the reflected beam rotates by <strong>2&alpha;</strong>. A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives disco balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
+      <p>When a mirror rotates by angle &alpha;, the reflected beam rotates by <strong>2&alpha;</strong>. A ball spinning at 2 RPM produces dots sweeping at an effective 4 RPM. This amplification gives mirror balls their dynamic, energetic feel — even slow rotation creates fast-moving dots, especially at higher latitudes where facets have more angular velocity relative to the spotlight.</p>
 
       <h3>Why Dots Twinkle</h3>
       <p><strong>Surface imperfections:</strong> Mirror tiles aren't perfectly flat — slight curvature from being pressed onto the sphere causes each facet's effective normal to fluctuate, making dots wobble and change intensity.</p>
@@ -142,7 +142,7 @@
       <p>The simulation maps each 3D reflected ray to screen coordinates using equirectangular projection — the same mapping used for panoramic photos. Each dot renders as a radial gradient: a bright core simulating the specular reflection, surrounded by a soft halo simulating bloom and atmospheric scattering. Color shifts toward white at high intensity, simulating photographic overexposure.</p>
       <p><em>Real-time Canvas 2D — no WebGL, no dependencies. ~500 facets at 60 fps.</em></p>
     </div>
-    <a class="modal-link" href="docs/physics-discoball.md" target="_blank" rel="noopener">Read the full derivation &rarr;</a>
+    <a class="modal-link" href="docs/physics-mirrorball.md" target="_blank" rel="noopener">Read the full derivation &rarr;</a>
   </div>
 </div>
 <script>
