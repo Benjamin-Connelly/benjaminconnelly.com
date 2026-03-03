@@ -93,3 +93,71 @@ The color shifts toward white at high intensity, simulating photographic overexp
 ---
 
 *The full simulation runs in real-time using Canvas 2D, with no WebGL or external dependencies. All physics calculations happen on the CPU at 60 fps for ~500 facets.*
+
+---
+
+## 8. Rotational Inertia & Motor Physics
+
+Rather than directly setting angular velocity, the simulation models the ball as a physical rotating body driven by a motor. The ball is a hollow spherical shell (mass $m$, radius $r$), whose moment of inertia is:
+
+$$I = \frac{2}{3}mr^2$$
+
+For a standard disco ball ($m = 2\,\text{kg}$, $r = 0.15\,\text{m}$): $I = 0.03$ kg·m².
+
+The motor applies torque as a proportional controller — torque proportional to the error between target and actual angular velocity:
+
+$$\tau_{\text{motor}} = k_p(\omega_{\text{target}} - \omega)$$
+
+Viscous bearing friction opposes rotation:
+
+$$\tau_{\text{friction}} = -b\,\omega$$
+
+Newton's second law for rotation gives angular acceleration:
+
+$$\alpha = \frac{\tau_{\text{motor}} + \tau_{\text{friction}}}{I} = \frac{k_p(\omega_{\text{target}} - \omega) - b\,\omega}{I}$$
+
+Integration uses the semi-implicit Euler method — velocity updates first, then position uses the corrected velocity:
+
+$$\omega_{n+1} = \omega_n + \alpha \cdot \Delta t \qquad \theta_{n+1} = \theta_n + \omega_{n+1} \cdot \Delta t$$
+
+This is more stable than explicit Euler because the position update already incorporates the velocity correction, reducing energy drift. The system behaves as a first-order lag with time constant $\tau_{\text{sys}} = I/(k_p + b) \approx 0.37\,\text{s}$, reaching 98% of target speed in about 1.5 seconds.
+
+---
+
+## 9. Room Geometry & Perspective Projection
+
+The room view projects reflected beams onto a rectangular room using a pinhole camera model. The ball sits at the origin inside a box (10 × 6 × 12 meters); the camera views from $z = -6\,\text{m}$.
+
+For each reflected ray $\hat{R}$, we find where it first hits a wall using ray-box intersection. Each wall is an axis-aligned plane, so the intersection parameter for each axis is:
+
+$$t = \frac{d_{\text{wall}}}{R_{\text{component}}}$$
+
+where $d_{\text{wall}}$ is the signed distance to the wall along that axis. Taking the minimum positive $t$ across all six walls gives the first hit, and the 3D intersection point is $\mathbf{P} = t\hat{R}$.
+
+The hit point projects onto the screen through a perspective (pinhole) camera:
+
+$$x_{\text{screen}} = \frac{W}{2} + \frac{P_x}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
+
+$$y_{\text{screen}} = \frac{H}{2} - \frac{P_y}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
+
+where $f = 1/\tan(\text{FOV}/2)$ is the focal ratio and $d_{\text{cam}}$ is the camera distance. Using $W$ (not $H$) for both axes maintains the correct aspect ratio — the vertical field of view adjusts with the window's aspect ratio, matching how real cameras work.
+
+---
+
+## 10. Beam Spread & Elliptical Distortion
+
+Each facet (~1.5 cm) produces a beam that diverges with distance due to the non-collimated spotlight source. The spot size on a wall at distance $t$ is:
+
+$$s_{\text{spot}} = s_{\text{facet}} \cdot \left(1 + \frac{t}{d_{\text{light}}}\right)$$
+
+where $d_{\text{light}}$ is the spotlight-to-ball distance. Closer walls get tighter dots; distant walls get larger, softer ones.
+
+When a beam hits a wall at oblique incidence, the circular beam cross-section projects into an ellipse. If $\theta$ is the angle between the beam and the wall normal:
+
+$$\cos\theta = |\hat{R} \cdot \hat{n}_{\text{wall}}|$$
+
+The semi-minor axis equals the beam radius, while the semi-major axis stretches inversely with $\cos\theta$:
+
+$$a = \frac{s}{\cos\theta}, \quad b = s$$
+
+At normal incidence ($\theta = 0$), the dot is circular. At glancing angles ($\theta \to 90°$), dots elongate into streaks — matching the stretched spots you see near wall edges and corners in real rooms. The ellipse orientation on screen is computed by projecting the beam's tangent-plane component through the camera's perspective Jacobian.

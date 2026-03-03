@@ -120,6 +120,7 @@
     <kbd>hjkl</kbd> light <span>&middot;</span>
     <kbd>&larr;&rarr;</kbd> speed <span>&middot;</span>
     <kbd>Space</kbd> pause <span>&middot;</span>
+    <kbd>V</kbd> view <span>&middot;</span>
     <kbd>?</kbd> help <span>&middot;</span>
     <kbd>M</kbd> physics
   </span>
@@ -187,6 +188,40 @@
       </ul>
       <p>The color shifts toward white at high intensity, simulating photographic overexposure — the same reason bright lights look white regardless of their actual color.</p>
       <p><em>The full simulation runs in real-time using Canvas 2D, with no WebGL or external dependencies. All physics calculations happen on the CPU at 60 fps for ~500 facets.</em></p>
+
+      <h3>8. Rotational Inertia &amp; Motor Physics</h3>
+      <p>Rather than directly setting angular velocity, the simulation models the ball as a physical rotating body driven by a motor. The ball is a hollow spherical shell (mass \(m\), radius \(r\)), whose moment of inertia is:</p>
+      $$I = \frac{2}{3}mr^2$$
+      <p>For a standard disco ball (\(m = 2\,\text{kg}\), \(r = 0.15\,\text{m}\)): \(I = 0.03\) kg·m².</p>
+      <p>The motor applies torque as a proportional controller — torque proportional to the error between target and actual angular velocity:</p>
+      $$\tau_{\text{motor}} = k_p(\omega_{\text{target}} - \omega)$$
+      <p>Viscous bearing friction opposes rotation:</p>
+      $$\tau_{\text{friction}} = -b\,\omega$$
+      <p>Newton's second law for rotation gives angular acceleration:</p>
+      $$\alpha = \frac{\tau_{\text{motor}} + \tau_{\text{friction}}}{I} = \frac{k_p(\omega_{\text{target}} - \omega) - b\,\omega}{I}$$
+      <p>Integration uses the semi-implicit Euler method — velocity updates first, then position uses the corrected velocity:</p>
+      $$\omega_{n+1} = \omega_n + \alpha \cdot \Delta t \qquad \theta_{n+1} = \theta_n + \omega_{n+1} \cdot \Delta t$$
+      <p>This is more stable than explicit Euler because the position update already incorporates the velocity correction, reducing energy drift. The system behaves as a first-order lag with time constant \(\tau_{\text{sys}} = I/(k_p + b) \approx 0.37\,\text{s}\), reaching 98% of target speed in about 1.5 seconds.</p>
+
+      <h3>9. Room Geometry &amp; Perspective Projection</h3>
+      <p>The room view projects reflected beams onto a rectangular room using a pinhole camera model. The ball sits at the origin inside a box (10 × 6 × 12 meters); the camera views from \(z = -6\,\text{m}\).</p>
+      <p>For each reflected ray \(\hat{R}\), we find where it first hits a wall using ray-box intersection. Each wall is an axis-aligned plane, so the intersection parameter for each axis is:</p>
+      $$t = \frac{d_{\text{wall}}}{R_{\text{component}}}$$
+      <p>where \(d_{\text{wall}}\) is the signed distance to the wall along that axis. Taking the minimum positive \(t\) across all six walls gives the first hit, and the 3D intersection point is \(\mathbf{P} = t\hat{R}\).</p>
+      <p>The hit point projects onto the screen through a perspective (pinhole) camera:</p>
+      $$x_{\text{screen}} = \frac{W}{2} + \frac{P_x}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
+      $$y_{\text{screen}} = \frac{H}{2} - \frac{P_y}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
+      <p>where \(f = 1/\tan(\text{FOV}/2)\) is the focal ratio and \(d_{\text{cam}}\) is the camera distance. Using \(W\) (not \(H\)) for both axes maintains the correct aspect ratio — the vertical field of view adjusts with the window's aspect ratio, matching how real cameras work.</p>
+
+      <h3>10. Beam Spread &amp; Elliptical Distortion</h3>
+      <p>Each facet (~1.5 cm) produces a beam that diverges with distance due to the non-collimated spotlight source. The spot size on a wall at distance \(t\) is:</p>
+      $$s_{\text{spot}} = s_{\text{facet}} \cdot \left(1 + \frac{t}{d_{\text{light}}}\right)$$
+      <p>where \(d_{\text{light}}\) is the spotlight-to-ball distance. Closer walls get tighter dots; distant walls get larger, softer ones.</p>
+      <p>When a beam hits a wall at oblique incidence, the circular beam cross-section projects into an ellipse. If \(\theta\) is the angle between the beam and the wall normal:</p>
+      $$\cos\theta = |\hat{R} \cdot \hat{n}_{\text{wall}}|$$
+      <p>The semi-minor axis equals the beam radius, while the semi-major axis stretches inversely with \(\cos\theta\):</p>
+      $$a = \frac{s}{\cos\theta}, \quad b = s$$
+      <p>At normal incidence (\(\theta = 0\)), the dot is circular. At glancing angles (\(\theta \to 90°\)), dots elongate into streaks — matching the stretched spots you see near wall edges and corners in real rooms. The ellipse orientation on screen is computed by projecting the beam's tangent-plane component through the camera's perspective Jacobian.</p>
     </div>
   </div>
 </div>
@@ -206,6 +241,26 @@ const BEAM_COUNT        = 12;     // Number of light rays
 const GLOW_STRENGTH     = 0.35;   // Center ball glow intensity
 const LIGHT_SMOOTHING   = 0.08;   // Mouse-to-light response lag (0–1)
 const LIGHT_R = 255, LIGHT_G = 30, LIGHT_B = 20; // Pinspot color
+
+// ── Rotational Inertia Constants ────────────────────────────────────────────
+const BALL_RADIUS    = 0.15;   // meters
+const BALL_MASS      = 2.0;    // kg
+const BALL_INERTIA   = (2/3) * BALL_MASS * BALL_RADIUS * BALL_RADIUS; // 0.03 kg·m²
+const MOTOR_KP       = 0.08;   // Nm·s/rad — proportional gain, settling ~1.5s
+const MOTOR_DAMPING  = 0.002;  // Nm·s/rad — light bearing friction
+
+// ── Room Geometry Constants ─────────────────────────────────────────────────
+const ROOM_W = 10.0;  // meters (x-axis, left-right)
+const ROOM_H = 6.0;   // meters (y-axis, floor-ceiling)
+const ROOM_D = 12.0;  // meters (z-axis, front-back)
+const CAM_DIST = 6.0;  // camera at z = -CAM_DIST
+const CAM_FOV = 70;    // degrees
+const CAM_F = 1.0 / Math.tan((CAM_FOV * Math.PI / 180) / 2); // focal ratio
+const FACET_SIZE = 0.015; // physical facet size in meters (~1.5cm)
+const LIGHT_DIST = 3.0;  // spotlight distance from ball (meters)
+const WALL_HX = ROOM_W / 2;
+const WALL_HY = ROOM_H / 2;
+const WALL_HZ = ROOM_D / 2;
 
 // ── Canvas Setup ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
@@ -243,9 +298,11 @@ for (let row = 0; row < FACET_ROWS; row++) {
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
-  rpm: ROTATION_RPM,
+  targetRpm: ROTATION_RPM,
+  omega: 0,             // actual angular velocity (rad/s), starts at rest
   paused: false,
   rotation: 0,
+  viewMode: 'panoramic', // 'panoramic' or 'room'
   modalOpen: false,
   helpVisible: true,
   mouseActive: false,
@@ -259,6 +316,7 @@ const state = {
 const N = new Float64Array(3);
 const L = new Float64Array(3);
 const R = new Float64Array(3);
+const P = new Float64Array(3); // hit point for room projection
 
 // ── Interaction ──────────────────────────────────────────────────────────────
 addEventListener('mousemove', e => {
@@ -292,12 +350,12 @@ addEventListener('touchmove', e => {
   } else if (e.touches.length === 2) {
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     const dy = lastTouchY - midY;
-    state.rpm = Math.max(0.1, Math.min(8.0, state.rpm + dy * 0.01));
+    state.targetRpm = Math.max(0.1, Math.min(8.0, state.targetRpm + dy * 0.01));
     lastTouchY = midY;
   }
 }, { passive: false });
 addEventListener('wheel', e => {
-  state.rpm = Math.max(0.1, Math.min(8.0, state.rpm + e.deltaY * 0.002));
+  state.targetRpm = Math.max(0.1, Math.min(8.0, state.targetRpm + e.deltaY * 0.002));
 });
 canvas.addEventListener('click', () => togglePause());
 
@@ -387,11 +445,15 @@ addEventListener('keydown', e => {
     // Speed: arrows left/right, ; ], [ (vim-adjacent)
     case 'ArrowLeft': case 'BracketLeft':
       e.preventDefault();
-      state.rpm = Math.max(0.1, state.rpm - 0.3);
+      state.targetRpm = Math.max(0.1, state.targetRpm - 0.3);
       break;
     case 'ArrowRight': case 'Semicolon': case 'BracketRight':
       e.preventDefault();
-      state.rpm = Math.min(8.0, state.rpm + 0.3);
+      state.targetRpm = Math.min(8.0, state.targetRpm + 0.3);
+      break;
+    case 'KeyV':
+      e.preventDefault();
+      state.viewMode = state.viewMode === 'panoramic' ? 'room' : 'panoramic';
       break;
     case 'KeyM':
       e.preventDefault();
@@ -410,7 +472,14 @@ function frame(time) {
   requestAnimationFrame(frame);
   const dt = state.lastTime ? (time - state.lastTime) / 1000 : 0;
   state.lastTime = time;
-  if (!state.paused) state.rotation += state.rpm * (2 * Math.PI / 60) * dt;
+  if (!state.paused) {
+    const omegaTarget = state.targetRpm * (2 * Math.PI / 60);
+    const tauMotor = MOTOR_KP * (omegaTarget - state.omega);
+    const tauFriction = -MOTOR_DAMPING * state.omega;
+    const alpha = (tauMotor + tauFriction) / BALL_INERTIA;
+    state.omega += alpha * dt;           // semi-implicit Euler
+    state.rotation += state.omega * dt;  // use updated omega
+  }
 
   // Smooth light direction toward target
   state.lx += (state.tlx - state.lx) * LIGHT_SMOOTHING;
@@ -467,6 +536,7 @@ function frame(time) {
   }
 
   // ── Layer 5: Reflected light dots ──────────────────────────────────────────
+  const isRoom = state.viewMode === 'room';
   for (let i = 0; i < facets.length; i++) {
     const f = facets[i];
     const theta = f.theta + state.rotation;
@@ -495,42 +565,127 @@ function frame(time) {
     R[1] = L[1] - 2 * LdotN * N[1];
     R[2] = L[2] - 2 * LdotN * N[2];
 
-    // Spherical unwrap → screen coords
-    const az = Math.atan2(R[2], R[0]);
-    const el = Math.asin(Math.max(-1, Math.min(1, R[1])));
-    const sx = cx + (az / Math.PI) * cx;
-    const sy = cy - (el / (Math.PI * 0.5)) * cy;
-
-    // Specular falloff
+    // Specular falloff & color (shared by both modes)
     const brightness = Math.pow(NdotNegL, 1.7) * INTENSITY;
-
-    // Color: bloom bright dots toward white (overexposure simulation)
     const bloom = Math.min(1, brightness);
     const cr = LIGHT_R + (255 - LIGHT_R) * bloom;
     const cg = LIGHT_G + (255 - LIGHT_G) * bloom;
     const cb = LIGHT_B + (255 - LIGHT_B) * bloom;
 
-    const baseR = DOT_RADIUS * scale * f.size;
-    const coreR = Math.max(0.5, baseR * (0.3 + 0.7 * brightness));
-    const haloR = coreR * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
+    if (isRoom) {
+      // ── Room mode: ray-box intersection → perspective → elliptical dots ──
 
-    // Outer halo
-    if (haloR > 0.5) {
-      const haloA = Math.min(1, 0.2 * brightness);
-      const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
-      hg.addColorStop(0, `rgba(${cr|0},${cg|0},${cb|0},${haloA.toFixed(3)})`);
-      hg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = hg;
+      // Find minimum positive t where ray hits a wall
+      let tHit = 1e20;
+      let wnx = 0, wny = 0, wnz = 0; // wall inward normal at hit
+      if (Math.abs(R[0]) > 1e-8) {
+        let ti = WALL_HX / R[0];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = -1; wny = 0; wnz = 0; }
+        ti = -WALL_HX / R[0];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = 1; wny = 0; wnz = 0; }
+      }
+      if (Math.abs(R[1]) > 1e-8) {
+        let ti = WALL_HY / R[1];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = 0; wny = -1; wnz = 0; }
+        ti = -WALL_HY / R[1];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = 0; wny = 1; wnz = 0; }
+      }
+      if (Math.abs(R[2]) > 1e-8) {
+        let ti = WALL_HZ / R[2];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = 0; wny = 0; wnz = -1; }
+        ti = -WALL_HZ / R[2];
+        if (ti > 0 && ti < tHit) { tHit = ti; wnx = 0; wny = 0; wnz = 1; }
+      }
+      if (tHit >= 1e20) continue;
+
+      // Hit point in world space
+      P[0] = tHit * R[0];
+      P[1] = tHit * R[1];
+      P[2] = tHit * R[2];
+
+      // Camera space (camera at z = -CAM_DIST)
+      const camZ = P[2] + CAM_DIST;
+      if (camZ < 0.1) continue;
+
+      // Perspective projection
+      const sx = W / 2 + (P[0] / camZ) * CAM_F * (W / 2);
+      const sy = H / 2 - (P[1] / camZ) * CAM_F * (W / 2);
+
+      if (sx < -100 || sx > W + 100 || sy < -100 || sy > H + 100) continue;
+
+      // Distance-based dot scaling
+      const spotPhysical = FACET_SIZE * f.size * (1 + tHit / LIGHT_DIST);
+      const spotScreen = Math.max(0.5, spotPhysical * CAM_F / camZ * (W / 2));
+
+      // Elliptical distortion from oblique incidence
+      const RdotNw = R[0] * wnx + R[1] * wny + R[2] * wnz;
+      const cosTheta = Math.max(0.1, Math.abs(RdotNw));
+      const semiMinor = spotScreen;
+      const semiMajor = spotScreen / cosTheta;
+
+      // Ellipse rotation: project R's tangent-plane component through camera
+      const Tx = R[0] - RdotNw * wnx;
+      const Ty = R[1] - RdotNw * wny;
+      const Tz = R[2] - RdotNw * wnz;
+      const dsx = Tx * camZ - P[0] * Tz;
+      const dsy = -(Ty * camZ - P[1] * Tz);
+      const ellipseAngle = Math.atan2(dsy, dsx);
+
+      // Core/halo sizing
+      const coreMinor = Math.max(0.5, semiMinor * (0.3 + 0.7 * brightness));
+      const coreMajor = Math.max(0.5, semiMajor * (0.3 + 0.7 * brightness));
+      const haloMinor = coreMinor * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
+      const haloMajor = coreMajor * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
+
+      // Outer halo (radial gradient clipped to ellipse path)
+      if (haloMinor > 0.5) {
+        const haloA = Math.min(1, 0.2 * brightness);
+        const maxR = Math.max(haloMajor, haloMinor);
+        const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, maxR);
+        hg.addColorStop(0, `rgba(${cr|0},${cg|0},${cb|0},${haloA.toFixed(3)})`);
+        hg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = hg;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, haloMajor, haloMinor, ellipseAngle, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Crisp bright core
+      ctx.fillStyle = `rgba(${cr|0},${cg|0},${cb|0},${Math.min(1, brightness * 0.9).toFixed(3)})`;
       ctx.beginPath();
-      ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy, coreMajor, coreMinor, ellipseAngle, 0, Math.PI * 2);
+      ctx.fill();
+
+    } else {
+      // ── Panoramic mode: spherical unwrap (original projection) ──
+
+      const az = Math.atan2(R[2], R[0]);
+      const el = Math.asin(Math.max(-1, Math.min(1, R[1])));
+      const sx = cx + (az / Math.PI) * cx;
+      const sy = cy - (el / (Math.PI * 0.5)) * cy;
+
+      const baseR = DOT_RADIUS * scale * f.size;
+      const coreR = Math.max(0.5, baseR * (0.3 + 0.7 * brightness));
+      const haloR = coreR * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
+
+      // Outer halo
+      if (haloR > 0.5) {
+        const haloA = Math.min(1, 0.2 * brightness);
+        const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
+        hg.addColorStop(0, `rgba(${cr|0},${cg|0},${cb|0},${haloA.toFixed(3)})`);
+        hg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = hg;
+        ctx.beginPath();
+        ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Crisp bright core
+      ctx.fillStyle = `rgba(${cr|0},${cg|0},${cb|0},${Math.min(1, brightness * 0.9).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, coreR, 0, Math.PI * 2);
       ctx.fill();
     }
-
-    // Crisp bright core
-    ctx.fillStyle = `rgba(${cr|0},${cg|0},${cb|0},${Math.min(1, brightness * 0.9).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(sx, sy, coreR, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   // Reset compositing
