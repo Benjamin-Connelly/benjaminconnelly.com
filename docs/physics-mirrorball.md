@@ -161,3 +161,60 @@ The semi-minor axis equals the beam radius, while the semi-major axis stretches 
 $$a = \frac{s}{\cos\theta}, \quad b = s$$
 
 At normal incidence ($\theta = 0$), the dot is circular. At glancing angles ($\theta \to 90°$), dots elongate into streaks — matching the stretched spots you see near wall edges and corners in real rooms. The ellipse orientation on screen is computed by projecting the beam's tangent-plane component through the camera's perspective Jacobian.
+
+---
+
+## 11. Fresnel Reflectance
+
+Real mirrors don't reflect all light equally — reflectance depends on incidence angle. At near-normal incidence, an aged mirror coating reflects about 70% of incoming light. At grazing angles, reflectance climbs toward 100%. This is the Fresnel effect, modeled with Schlick's approximation:
+
+$$R(\theta) = R_0 + (1 - R_0)(1 - \cos\theta)^5$$
+
+where $R_0 \approx 0.7$ is the base reflectance and $\theta$ is the angle of incidence. The fifth-power falloff means the boost only kicks in at very steep angles — most facets reflect at roughly $R_0$, but edge-on facets flash brighter. The exponent is computed without `Math.pow`: $(1 - \cos\theta)^2$ is squared, then multiplied once more, keeping the per-facet cost to five multiplications.
+
+---
+
+## 12. Spotlight Cone & Penumbra
+
+A real pinspot has finite angular extent — it doesn't illuminate the entire ball uniformly. The simulation models a cone with two angles:
+
+- **Inner cone** (30°): full intensity within this angle from the spotlight axis
+- **Outer cone** (65°): zero intensity beyond this angle
+
+Between the two, intensity falls off via a smoothstep function — a cubic Hermite interpolation that produces a smooth, physically plausible penumbra:
+
+$$\text{smoothstep}(a, b, x) = t^2(3 - 2t), \quad t = \text{clamp}\!\left(\frac{x - a}{b - a}\right)$$
+
+The spotlight axis is the light direction vector $\hat{L}$. Since the facet's position on the unit sphere is approximately its normal $\hat{n}$, the angle from the spotlight axis is $\cos^{-1}(\hat{n} \cdot (-\hat{L}))$ — conveniently, this is the same $\cos\theta$ already computed for back-face culling. Moving the light visibly shifts which facets are illuminated.
+
+---
+
+## 13. Inverse-Square Falloff
+
+In the room view, dot brightness attenuates with distance from the ball to the wall. Light intensity follows the inverse-square law — energy spreads over the surface of an expanding sphere. Using a reference distance $d_{\text{ref}}$ for normalization:
+
+$$I(t) = \frac{d_{\text{ref}}^2}{d_{\text{ref}}^2 + t^2}$$
+
+At $t = 0$: full brightness. At $t = d_{\text{ref}}$: half brightness. At $t = 2d_{\text{ref}}$: one-fifth. With $d_{\text{ref}} = 5\,\text{m}$, dots on the near wall are vivid while far-wall dots fade into the background — the same depth cue you perceive in a real room.
+
+This attenuation is applied only in room mode (the panoramic view has no concept of wall distance).
+
+---
+
+## 14. Motor Precession
+
+Real disco ball motors aren't perfectly aligned — the shaft, bearing play, and mounting all introduce slight asymmetry. The simulation adds a slow wobble to the rotation axis: ±2° of tilt oscillating at ~0.13 Hz, with different frequencies for the X and Z tilt components so the wobble doesn't repeat a simple circle.
+
+Mechanically, this is applied as two small-angle rotations (around X then Z) to every facet normal before the shimmer perturbation. The rotation matrices are precomputed once per frame — only their application to each normal costs per-facet work (8 multiplications, 4 additions).
+
+The visual effect is subtle but important: it breaks the mechanical regularity of a perfect rotation, adding organic variation to the dot pattern. Without it, every cycle of the ball traces exactly the same paths — with it, dots drift slightly between cycles, as they do on a real dance floor.
+
+---
+
+## 15. Atmospheric Haze
+
+The haze layer uses screen-blended radial gradient particles drifting with slow turbulence — sinusoidal displacement at different frequencies per axis creates non-repeating, organic motion.
+
+Each particle has independent phase, size, and drift velocity. Opacity fades in/out smoothly when toggled. The screen blend mode ensures the haze brightens where light beams pass through it (additive luminance) without darkening the background — the same optical behavior as real atmospheric scattering, where suspended particles scatter light into the viewing direction.
+
+In a real room, visible beams are Tyndall scattering (particles smaller than the wavelength) or Mie scattering (comparable-sized particles like fog machine output). The angular dependence of Mie scattering means beams are brightest when viewed perpendicular to the beam axis — a subtlety not yet modeled here, but the visual result captures the essential character of a hazy room.
