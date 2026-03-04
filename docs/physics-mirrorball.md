@@ -126,7 +126,7 @@ This is more stable than explicit Euler because the position update already inco
 
 ## 9. Room Geometry & Perspective Projection
 
-The room view projects reflected beams onto a rectangular room using a pinhole camera model. The ball sits at the origin inside a box (10 × 6 × 12 meters); the camera views from $z = -6\,\text{m}$.
+The room view projects reflected beams onto a rectangular room using a pinhole camera model. The ball sits at the origin inside a box (10 × 6 × 12 meters); the camera views from $(0, -1.5, -5)\,\text{m}$ — standing height, one meter inside the near wall — with a 105° field of view.
 
 For each reflected ray $\hat{R}$, we find where it first hits a wall using ray-box intersection. Each wall is an axis-aligned plane, so the intersection parameter for each axis is:
 
@@ -138,9 +138,9 @@ The hit point projects onto the screen through a perspective (pinhole) camera:
 
 $$x_{\text{screen}} = \frac{W}{2} + \frac{P_x}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
 
-$$y_{\text{screen}} = \frac{H}{2} - \frac{P_y}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
+$$y_{\text{screen}} = \frac{H}{2} - \frac{P_y - y_{\text{cam}}}{P_z + d_{\text{cam}}} \cdot f \cdot \frac{W}{2}$$
 
-where $f = 1/\tan(\text{FOV}/2)$ is the focal ratio and $d_{\text{cam}}$ is the camera distance. Using $W$ (not $H$) for both axes maintains the correct aspect ratio — the vertical field of view adjusts with the window's aspect ratio, matching how real cameras work.
+where $f = 1/\tan(\text{FOV}/2)$ is the focal ratio, $d_{\text{cam}}$ is the camera distance, and $y_{\text{cam}} = -1.5\,\text{m}$ offsets the camera below the ball to simulate a standing observer looking up at a ceiling-mounted ball. Using $W$ (not $H$) for both axes maintains the correct aspect ratio.
 
 ---
 
@@ -201,20 +201,63 @@ This attenuation is applied only in room mode (the panoramic view has no concept
 
 ---
 
-## 14. Motor Precession
+## 14. Axis Tilt & Motor Precession
 
-Real disco ball motors aren't perfectly aligned — the shaft, bearing play, and mounting all introduce slight asymmetry. The simulation adds a slow wobble to the rotation axis: ±2° of tilt oscillating at ~0.13 Hz, with different frequencies for the X and Z tilt components so the wobble doesn't repeat a simple circle.
+A mirror ball rotating on a perfectly vertical axis produces dots that sweep in horizontal bands — the reflection from each latitude row traces an arc at a fixed height. This creates a visible staircase effect as dots jump between discrete rows.
 
-Mechanically, this is applied as two small-angle rotations (around X then Z) to every facet normal before the shimmer perturbation. The rotation matrices are precomputed once per frame — only their application to each normal costs per-facet work (8 multiplications, 4 additions).
+Real mirror ball motors are never perfectly aligned. The simulation applies a static 10° axis tilt, so dots trace diagonal arcs instead of horizontal bands. On top of this, a slow ±2° wobble oscillates at ~0.13 Hz, with different frequencies for the X and Z tilt components so the motion never exactly repeats.
 
-The visual effect is subtle but important: it breaks the mechanical regularity of a perfect rotation, adding organic variation to the dot pattern. Without it, every cycle of the ball traces exactly the same paths — with it, dots drift slightly between cycles, as they do on a real dance floor.
+Mechanically, both are applied as two small-angle rotations (around X then Z) to every facet normal before the shimmer perturbation. The rotation matrices are precomputed once per frame — only their application to each normal costs per-facet work (8 multiplications, 4 additions).
+
+The combined effect is critical: the static tilt eliminates horizontal banding, while the wobble adds organic variation so dots drift slightly between cycles — matching the complex, never-repeating pattern of a real dance floor.
 
 ---
 
-## 15. Atmospheric Haze
+## 15. Volumetric Scattering (Smoke)
 
-The haze layer uses screen-blended radial gradient particles drifting with slow turbulence — sinusoidal displacement at different frequencies per axis creates non-repeating, organic motion.
+When smoke is introduced to the room, aerosol particles ($\approx 0.1$–$1\,\mu\text{m}$) shift the optical model from purely specular wall reflections to volumetric Mie scattering along each beam's path. The normally invisible reflected rays become luminous shafts cutting through the space — the same Tyndall effect that makes sunbeams visible through forest canopy on a misty morning.
 
-Each particle has independent phase, size, and drift velocity. Opacity fades in/out smoothly when toggled. The screen blend mode ensures the haze brightens where light beams pass through it (additive luminance) without darkening the background — the same optical behavior as real atmospheric scattering, where suspended particles scatter light into the viewing direction.
+The scattered intensity reaching the observer depends on the viewing angle $\theta$ between the beam direction $\hat{R}$ and the camera-to-beam vector. We use the **Henyey-Greenstein phase function**:
 
-In a real room, visible beams are Tyndall scattering (particles smaller than the wavelength) or Mie scattering (comparable-sized particles like fog machine output). The angular dependence of Mie scattering means beams are brightest when viewed perpendicular to the beam axis — a subtlety not yet modeled here, but the visual result captures the essential character of a hazy room.
+$$P(\theta) = \frac{1 - g^2}{4\pi(1 + g^2 - 2g\cos\theta)^{3/2}}$$
+
+where $g = 0.6$ is the asymmetry parameter for forward-scattering smoke. At $g = 0$, scattering is isotropic; at $g \to 1$, all light scatters forward. The strong forward lobe means beams traveling roughly toward the camera appear brightest — matching real observation. The denominator is computed as $d \cdot \sqrt{d}$ rather than $d^{3/2}$ to avoid `Math.pow`.
+
+Beam intensity also attenuates with distance through the aerosol via the **Beer-Lambert law**:
+
+$$I(z) = I_0\,e^{-\alpha z}$$
+
+where $\alpha = 0.18\,\text{m}^{-1}$ is the extinction coefficient (absorption + out-scattering). This is applied as a multi-stop linear gradient along each beam polygon, approximating the exponential decay with Canvas 2D gradients.
+
+Smoke density is not uniform — convective currents and thermal plumes create turbulent variation. Rather than simulating full Navier-Stokes fluid dynamics, we modulate beam opacity with a lightweight sine-wave interference pattern:
+
+$$f(x, y, t) = 0.6 + 0.4\,\sin(3.1x + 0.7t)\,\cos(2.7y - 0.5t)$$
+
+The irrational frequency ratios ensure the pattern never exactly repeats, producing organic, non-repeating fluctuation at negligible computational cost.
+
+Each beam is rendered as a narrow quad (widening from ball center to wall hit point) with additive blending (`globalCompositeOperation = 'lighter'`) so overlapping beams accumulate brightness physically. A separate layer of screen-blended radial gradient particles provides ambient atmospheric haze — drifting with slow turbulence to complete the volumetric illusion.
+
+---
+
+## 16. Rendering Pipeline & Technology
+
+The entire simulation is a single HTML file with no build step, no external libraries, and no WebGL — just the **Canvas 2D API** running on the CPU. All physics and rendering happen in one `requestAnimationFrame` loop at 60 fps for ~650 facets.
+
+The rendering pipeline has six composited layers, drawn in order each frame:
+
+1. **Background** — solid dark fill (`source-over`)
+2. **Cursor glow** — radial gradient at mouse position showing spotlight source
+3. **Ball glow** — large radial gradient simulating ambient scatter from the ball body
+4. **Decorative beams** — 12 triangular gradients rotating with the ball (`lighter` blending)
+5. **Reflected dots** — per-facet physics: normal computation, reflection, ray-box intersection, perspective projection, elliptical rendering with radial gradient halos
+6. **Atmospheric haze** — full-screen fog layer, warm glow gradient, and drifting particles (`screen` blending)
+
+Key performance decisions:
+
+- **No per-frame allocation.** Reusable `Float64Array` vectors (N, L, R, P) are written in-place — no objects created during rendering, no GC pressure.
+- **Precomputed trig.** Rotation matrices for axis tilt and wobble are computed once per frame, then applied to each facet with 8 multiplies and 4 adds.
+- **No `Math.pow`.** Fresnel's fifth-power term uses chained multiplication; Henyey-Greenstein's $d^{3/2}$ uses $d \cdot \sqrt{d}$.
+- **Additive blending via Canvas compositing.** `globalCompositeOperation = 'lighter'` gives physically correct light accumulation without shaders.
+- **Elliptical dots via `ctx.ellipse()`.** Slightly more expensive than `ctx.arc()`, but captures oblique-incidence distortion without extra geometry.
+
+The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1000 lines of code.
