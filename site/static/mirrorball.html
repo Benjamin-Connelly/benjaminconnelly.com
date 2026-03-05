@@ -498,7 +498,7 @@ for (let i = 0; i < SMOKE_PARTICLE_COUNT; i++) {
     x: Math.random(), y: Math.random(),           // normalized [0,1]
     vx: (Math.random() - 0.5) * SMOKE_DRIFT_SPEED,
     vy: -Math.random() * SMOKE_DRIFT_SPEED * 0.5, // drift upward
-    size: 0.5 + Math.random() * 0.7,              // large: 50-120% of screen → heavily overlapping
+    size: 0.3 + Math.random() * 0.5,              // 30-80% of screen dimension at render scale
     opacity: 0,                                     // starts invisible
     phase: Math.random() * Math.PI * 2
   });
@@ -1032,7 +1032,7 @@ function frame(time) {
   {
     const hW = hazeCanvas.width, hH = hazeCanvas.height;
     hazeCtx.globalCompositeOperation = 'source-over';
-    hazeCtx.fillStyle = 'rgba(0,0,0,0.06)';
+    hazeCtx.fillStyle = 'rgba(0,0,0,0.12)';
     hazeCtx.fillRect(0, 0, hW, hH);
   }
   if (state.smokeDensity > 0.001) {
@@ -1057,7 +1057,7 @@ function frame(time) {
     // drawn back with blur for a soft volumetric look instead of sharp circles
     const hW = hazeCanvas.width, hH = hazeCanvas.height;
     hazeCtx.globalCompositeOperation = 'screen';
-    const maxOp = 0.07 * sd;
+    const maxOp = 0.025 * sd;
     for (let i = 0; i < smokeParticles.length; i++) {
       const p = smokeParticles[i];
       p.opacity += (maxOp - p.opacity) * 0.03;
@@ -1068,10 +1068,14 @@ function frame(time) {
       if (p.y < -0.5) { p.y = 1.4; p.x = Math.random(); }
       if (p.y > 1.5) { p.y = -0.4; p.x = Math.random(); }
       const px = p.x * hW, py = p.y * hH;
-      const pr = p.size * Math.min(hW, hH) * 0.6;
+      const pr = p.size * Math.min(hW, hH) * 0.35;
       const a = p.opacity * (0.5 + 0.5 * Math.sin(t * 0.2 + p.phase));
+      // Tint particles with the light color — smoke picks up the hue of light passing through it
+      const lr = Math.round(LIGHT_R * 0.3 + 40);
+      const lg = Math.round(LIGHT_G * 0.3 + 35);
+      const lb = Math.round(LIGHT_B * 0.3 + 45);
       const sg = hazeCtx.createRadialGradient(px, py, 0, px, py, pr);
-      sg.addColorStop(0, `rgba(160,155,170,${a.toFixed(4)})`);
+      sg.addColorStop(0, `rgba(${lr},${lg},${lb},${a.toFixed(4)})`);
       sg.addColorStop(1, 'rgba(0,0,0,0)');
       hazeCtx.fillStyle = sg;
       hazeCtx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
@@ -1081,7 +1085,8 @@ function frame(time) {
 
   // Composite blurred haze back onto main canvas (always — handles fade-out tail)
   ctx.save();
-  ctx.filter = `blur(${Math.round(12 * scale)}px)`;
+  ctx.filter = `blur(${Math.round(16 * scale)}px)`;
+  ctx.globalAlpha = 0.6;
   ctx.globalCompositeOperation = 'screen';
   ctx.drawImage(hazeCanvas, 0, 0, W, H);
   ctx.restore();
