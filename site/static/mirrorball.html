@@ -350,8 +350,8 @@
 // ── Tweakable Constants ──────────────────────────────────────────────────────
 const ROTATION_RPM      = 2.0;    // Ball spin speed (RPM)
 const INTENSITY         = 2.2;    // Global brightness multiplier
-const FACET_ROWS        = 26;     // Mirror rows pole-to-pole
-const FACETS_AT_EQUATOR = 38;     // Tiles at widest row
+const FACET_ROWS        = 36;     // Mirror rows pole-to-pole
+const FACETS_AT_EQUATOR = 52;     // Tiles at widest row
 const DOT_RADIUS        = 3.2;    // Base dot size (px at 900px viewport)
 const DOT_SHARPNESS     = 0.8;    // 0 = soft gaussian, 1 = crisp
 const SHIMMER           = 0.35;   // Twinkle intensity
@@ -359,7 +359,7 @@ const SHIMMER_SPEED     = 3.0;    // Twinkle oscillation rate (Hz)
 const BEAM_OPACITY      = 0.06;   // Volumetric ray visibility
 const BEAM_COUNT        = 12;     // Number of light rays
 const GLOW_STRENGTH     = 0.35;   // Center ball glow intensity
-const LIGHT_SMOOTHING   = 0.08;   // Mouse-to-light response lag (0–1)
+const LIGHT_SMOOTHING   = 0.15;   // Mouse-to-light response lag (0–1)
 let LIGHT_R = 255, LIGHT_G = 20, LIGHT_B = 10; // Pinspot color (mutable for color cycling)
 
 // Light color presets: saturated club pinspot colors
@@ -397,8 +397,8 @@ const WALL_HZ = ROOM_D / 2;
 
 // ── Advanced Lighting Constants ─────────────────────────────────────────────
 const MIRROR_R0      = 0.7;    // base reflectance (aged mirror coating)
-const SPOT_INNER_DEG = 50;     // spotlight full-intensity cone (degrees)
-const SPOT_OUTER_DEG = 85;     // spotlight penumbra edge (degrees)
+const SPOT_INNER_DEG = 30;     // spotlight full-intensity cone (degrees)
+const SPOT_OUTER_DEG = 55;     // spotlight penumbra edge (degrees)
 const SPOT_COS_INNER = Math.cos(SPOT_INNER_DEG * Math.PI / 180);
 const SPOT_COS_OUTER = Math.cos(SPOT_OUTER_DEG * Math.PI / 180);
 const INV_SQ_REF     = 8.0;    // inverse-square reference distance (meters, higher = less falloff)
@@ -509,7 +509,7 @@ addEventListener('mousemove', e => {
   state.mouseX = e.clientX; state.mouseY = e.clientY; state.mouseActive = true;
   state.tlx = (e.clientX / W) * 2 - 1;
   state.tly = -((e.clientY / H) * 2 - 1);
-  state.tlz = state.viewMode === 'room' ? 0.15 : 0.6;
+  state.tlz = state.viewMode === 'room' ? 0.4 : 0.6;
 });
 // Touch: 1 finger = light angle, 2 fingers = speed, double-tap = pause
 let lastTouchY = 0;
@@ -535,7 +535,7 @@ addEventListener('touchmove', e => {
     state.mouseX = t.clientX; state.mouseY = t.clientY; state.mouseActive = true;
     state.tlx = (t.clientX / W) * 2 - 1;
     state.tly = -((t.clientY / H) * 2 - 1);
-    state.tlz = state.viewMode === 'room' ? 0.15 : 0.6;
+    state.tlz = state.viewMode === 'room' ? 0.4 : 0.6;
   } else if (e.touches.length === 2) {
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     const dy = lastTouchY - midY;
