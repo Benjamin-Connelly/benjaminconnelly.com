@@ -425,6 +425,11 @@ const HAZE_SCALE = 0.25; // 1/4 resolution — downsampling + blur = soft volume
 const hazeCanvas = document.createElement('canvas');
 const hazeCtx = hazeCanvas.getContext('2d');
 
+// Bloom offscreen canvas — captures bright elements at 1/8 res for spectral bleed
+const BLOOM_SCALE = 0.125;
+const bloomCanvas = document.createElement('canvas');
+const bloomCtx = bloomCanvas.getContext('2d');
+
 function resize() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
   W = innerWidth; H = innerHeight;
@@ -434,6 +439,8 @@ function resize() {
   scale = H / 900;
   hazeCanvas.width = Math.ceil(W * HAZE_SCALE);
   hazeCanvas.height = Math.ceil(H * HAZE_SCALE);
+  bloomCanvas.width = Math.ceil(W * BLOOM_SCALE);
+  bloomCanvas.height = Math.ceil(H * BLOOM_SCALE);
 }
 resize();
 addEventListener('resize', resize);
@@ -1016,6 +1023,13 @@ function frame(time) {
   }
 
   // ── Layer 6: Atmospheric haze — full-room fog effect ─
+  // Always fade the haze persistence buffer (graceful dissipation when smoke turns off)
+  {
+    const hW = hazeCanvas.width, hH = hazeCanvas.height;
+    hazeCtx.globalCompositeOperation = 'source-over';
+    hazeCtx.fillStyle = 'rgba(0,0,0,0.06)';
+    hazeCtx.fillRect(0, 0, hW, hH);
+  }
   if (state.smokeDensity > 0.001) {
     const sd = state.smokeDensity;
 
@@ -1037,7 +1051,6 @@ function frame(time) {
     // 6c: Drifting haze particles — rendered to offscreen canvas at 1/4 res, then
     // drawn back with blur for a soft volumetric look instead of sharp circles
     const hW = hazeCanvas.width, hH = hazeCanvas.height;
-    hazeCtx.clearRect(0, 0, hW, hH);
     hazeCtx.globalCompositeOperation = 'screen';
     const maxOp = 0.07 * sd;
     for (let i = 0; i < smokeParticles.length; i++) {
@@ -1059,17 +1072,45 @@ function frame(time) {
       hazeCtx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
     }
     hazeCtx.globalCompositeOperation = 'source-over';
+  }
 
-    // Composite blurred haze back onto main canvas
+  // Composite blurred haze back onto main canvas (always — handles fade-out tail)
+  ctx.save();
+  ctx.filter = `blur(${Math.round(12 * scale)}px)`;
+  ctx.globalCompositeOperation = 'screen';
+  ctx.drawImage(hazeCanvas, 0, 0, W, H);
+  ctx.restore();
+
+  // ── Layer 7: Multi-pass bloom — spectral light bleed ─────────────────────
+  // Capture the current scene at 1/8 res, darken to extract only bright pixels,
+  // then composite back at 3 blur radii for a hot core + mid halo + wide scatter.
+  const bW = bloomCanvas.width, bH = bloomCanvas.height;
+  bloomCtx.clearRect(0, 0, bW, bH);
+  bloomCtx.drawImage(canvas, 0, 0, bW, bH);
+  // Threshold: multiply with dark fill clips dim pixels, keeps only bright areas
+  bloomCtx.globalCompositeOperation = 'multiply';
+  bloomCtx.fillStyle = 'rgba(0,0,0,0.7)';
+  bloomCtx.fillRect(0, 0, bW, bH);
+  bloomCtx.globalCompositeOperation = 'source-over';
+
+  ctx.globalCompositeOperation = 'screen';
+  const bloomPasses = [
+    { blur: Math.round(2 * scale), alpha: 0.5 },
+    { blur: Math.round(8 * scale), alpha: 0.25 },
+    { blur: Math.round(20 * scale), alpha: 0.12 },
+  ];
+  for (let i = 0; i < bloomPasses.length; i++) {
+    const bp = bloomPasses[i];
     ctx.save();
-    ctx.filter = `blur(${Math.round(12 * scale)}px)`;
-    ctx.globalCompositeOperation = 'screen';
-    ctx.drawImage(hazeCanvas, 0, 0, W, H);
+    ctx.filter = `blur(${bp.blur}px)`;
+    ctx.globalAlpha = bp.alpha;
+    ctx.drawImage(bloomCanvas, 0, 0, W, H);
     ctx.restore();
   }
 
   // Reset compositing
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
 }
 requestAnimationFrame(frame);
 </script>
