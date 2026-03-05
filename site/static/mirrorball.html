@@ -1057,7 +1057,7 @@ function frame(time) {
     // drawn back with blur for a soft volumetric look instead of sharp circles
     const hW = hazeCanvas.width, hH = hazeCanvas.height;
     hazeCtx.globalCompositeOperation = 'screen';
-    const maxOp = 0.025 * sd;
+    const maxOp = 0.035 * sd;
     for (let i = 0; i < smokeParticles.length; i++) {
       const p = smokeParticles[i];
       p.opacity += (maxOp - p.opacity) * 0.03;
@@ -1086,7 +1086,7 @@ function frame(time) {
   // Composite blurred haze back onto main canvas (always — handles fade-out tail)
   ctx.save();
   ctx.filter = `blur(${Math.round(16 * scale)}px)`;
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.75;
   ctx.globalCompositeOperation = 'screen';
   ctx.drawImage(hazeCanvas, 0, 0, W, H);
   ctx.restore();
