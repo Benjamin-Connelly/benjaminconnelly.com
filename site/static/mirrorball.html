@@ -293,18 +293,21 @@
 
       <p>Smoke density is not uniform — convective currents create turbulent variation. Rather than simulating fluid dynamics, we modulate beam opacity with a lightweight interference pattern \(f = 0.6 + 0.4\sin(3.1x + 0.7t)\cos(2.7y - 0.5t)\), producing organic, non-repeating fluctuation.</p>
 
-      <p>Each beam is rendered as a narrow quad (widening from ball to wall) with <code>globalCompositeOperation = 'lighter'</code> for physically correct additive blending where beams overlap. A separate layer of screen-blended radial gradient particles provides the ambient atmospheric haze — drifting with slow turbulence to complete the volumetric illusion.</p>
+      <p>Each beam is rendered as a narrow quad (widening from ball to wall) with <code>globalCompositeOperation = 'lighter'</code> for physically correct additive blending where beams overlap.</p>
+
+      <p>The ambient haze uses a separate <strong>offscreen canvas</strong> at 1/4 resolution. Eighty drifting particles are rendered there as radial gradients, then composited back onto the main canvas with a gaussian blur pass — the 4× downscale plus blur produces soft, amorphous fog clouds instead of distinct circles. The offscreen canvas uses <strong>temporal persistence</strong>: instead of clearing each frame, a semi-transparent black fill (\(\alpha = 0.06\)) fades previous content. This causes fog density to accumulate over time and dissipate gradually (~280 frames to fully clear), matching the behavior of real aerosol dispersal.</p>
 
       <h3>16. Rendering Pipeline &amp; Technology</h3>
       <p>The entire simulation is a single HTML file with no build step, no external libraries, and no WebGL — just the <strong>Canvas 2D API</strong> running on the CPU. All physics and rendering happen in one <code>requestAnimationFrame</code> loop at 60 fps for ~650 facets.</p>
-      <p>The rendering pipeline has six composited layers, drawn in order each frame:</p>
+      <p>The rendering pipeline has seven composited layers, drawn in order each frame:</p>
       <ol>
         <li><strong>Background</strong> — solid dark fill (<code>source-over</code>)</li>
         <li><strong>Cursor glow</strong> — radial gradient at mouse position showing spotlight source</li>
         <li><strong>Ball glow</strong> — large radial gradient simulating ambient scatter from the ball body</li>
         <li><strong>Decorative beams</strong> — 12 triangular gradients rotating with the ball (<code>lighter</code> blending)</li>
         <li><strong>Reflected dots</strong> — per-facet physics: normal computation, reflection, ray-box intersection, perspective projection, elliptical rendering with radial gradient halos</li>
-        <li><strong>Atmospheric haze</strong> — full-screen fog layer, warm glow gradient, and drifting particles (<code>screen</code> blending)</li>
+        <li><strong>Atmospheric haze</strong> — full-screen fog layer, warm glow gradient, and drifting particles rendered to a 1/4-resolution offscreen canvas with temporal persistence, then composited with gaussian blur (<code>screen</code> blending)</li>
+        <li><strong>Bloom</strong> — the full scene is captured at 1/8 resolution, thresholded via <code>multiply</code> to extract only bright pixels, then composited back in three passes at increasing blur radii (2px, 8px, 20px) with decreasing opacity — producing a tight hot core, a mid-range aureole, and a wide atmospheric scatter halo (<code>screen</code> blending)</li>
       </ol>
       <p>Key performance decisions:</p>
       <ul>
@@ -313,8 +316,10 @@
         <li><strong>No <code>Math.pow</code>.</strong> Fresnel's fifth-power term uses chained multiplication; Henyey-Greenstein's \(d^{3/2}\) uses \(d \cdot \sqrt{d}\).</li>
         <li><strong>Additive blending via Canvas compositing.</strong> <code>globalCompositeOperation = 'lighter'</code> gives physically correct light accumulation without shaders.</li>
         <li><strong>Elliptical dots via <code>ctx.ellipse()</code>.</strong> Slightly more expensive than <code>ctx.arc()</code>, but captures oblique-incidence distortion without extra geometry.</li>
+        <li><strong>Multi-resolution offscreen canvases.</strong> Haze particles at 1/4 res and bloom at 1/8 res keep GPU fill cost low while the bilinear upscale on <code>drawImage</code> provides free smoothing. <code>ctx.filter</code> blur runs on the GPU in Chrome/Edge/Firefox.</li>
+        <li><strong>Temporal persistence.</strong> The haze offscreen canvas fades with \(\alpha = 0.06\) per frame instead of clearing — fog accumulates and dissipates naturally without extra particle bookkeeping.</li>
       </ul>
-      <p>The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1000 lines of code.</p>
+      <p>The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1100 lines of code.</p>
     </div>
   </div>
 </div>

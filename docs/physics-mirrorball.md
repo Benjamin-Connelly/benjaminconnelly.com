@@ -235,7 +235,9 @@ $$f(x, y, t) = 0.6 + 0.4\,\sin(3.1x + 0.7t)\,\cos(2.7y - 0.5t)$$
 
 The irrational frequency ratios ensure the pattern never exactly repeats, producing organic, non-repeating fluctuation at negligible computational cost.
 
-Each beam is rendered as a narrow quad (widening from ball center to wall hit point) with additive blending (`globalCompositeOperation = 'lighter'`) so overlapping beams accumulate brightness physically. A separate layer of screen-blended radial gradient particles provides ambient atmospheric haze — drifting with slow turbulence to complete the volumetric illusion.
+Each beam is rendered as a narrow quad (widening from ball center to wall hit point) with additive blending (`globalCompositeOperation = 'lighter'`) so overlapping beams accumulate brightness physically.
+
+The ambient haze uses a separate **offscreen canvas** at 1/4 resolution. Eighty drifting particles are rendered there as radial gradients, then composited back onto the main canvas with a gaussian blur pass — the 4× downscale plus blur produces soft, amorphous fog clouds instead of distinct circles. The offscreen canvas uses **temporal persistence**: instead of clearing each frame, a semi-transparent black fill ($\alpha = 0.06$) fades previous content. This causes fog density to accumulate over time and dissipate gradually (~280 frames to fully clear), matching the behavior of real aerosol dispersal.
 
 ---
 
@@ -243,14 +245,15 @@ Each beam is rendered as a narrow quad (widening from ball center to wall hit po
 
 The entire simulation is a single HTML file with no build step, no external libraries, and no WebGL — just the **Canvas 2D API** running on the CPU. All physics and rendering happen in one `requestAnimationFrame` loop at 60 fps for ~650 facets.
 
-The rendering pipeline has six composited layers, drawn in order each frame:
+The rendering pipeline has seven composited layers, drawn in order each frame:
 
 1. **Background** — solid dark fill (`source-over`)
 2. **Cursor glow** — radial gradient at mouse position showing spotlight source
 3. **Ball glow** — large radial gradient simulating ambient scatter from the ball body
 4. **Decorative beams** — 12 triangular gradients rotating with the ball (`lighter` blending)
 5. **Reflected dots** — per-facet physics: normal computation, reflection, ray-box intersection, perspective projection, elliptical rendering with radial gradient halos
-6. **Atmospheric haze** — full-screen fog layer, warm glow gradient, and drifting particles (`screen` blending)
+6. **Atmospheric haze** — full-screen fog layer, warm glow gradient, and drifting particles rendered to a 1/4-resolution offscreen canvas with temporal persistence, then composited with gaussian blur (`screen` blending)
+7. **Bloom** — the full scene is captured at 1/8 resolution, thresholded via `multiply` to extract only bright pixels, then composited back in three passes at increasing blur radii (2px, 8px, 20px) with decreasing opacity — producing a tight hot core, a mid-range aureole, and a wide atmospheric scatter halo (`screen` blending)
 
 Key performance decisions:
 
@@ -259,5 +262,7 @@ Key performance decisions:
 - **No `Math.pow`.** Fresnel's fifth-power term uses chained multiplication; Henyey-Greenstein's $d^{3/2}$ uses $d \cdot \sqrt{d}$.
 - **Additive blending via Canvas compositing.** `globalCompositeOperation = 'lighter'` gives physically correct light accumulation without shaders.
 - **Elliptical dots via `ctx.ellipse()`.** Slightly more expensive than `ctx.arc()`, but captures oblique-incidence distortion without extra geometry.
+- **Multi-resolution offscreen canvases.** Haze particles at 1/4 res and bloom at 1/8 res keep GPU fill cost low while the bilinear upscale on `drawImage` provides free smoothing. `ctx.filter` blur runs on the GPU in Chrome/Edge/Firefox.
+- **Temporal persistence.** The haze offscreen canvas fades with $\alpha = 0.06$ per frame instead of clearing — fog accumulates and dissipates naturally without extra particle bookkeeping.
 
-The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1000 lines of code.
+The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1100 lines of code.
