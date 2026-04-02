@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TB-303</title>
+<style>
+:root {
+  --bg: #05020a;
+  --primary: #39FF14;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); cursor: crosshair; }
+canvas { display: block; }
+#back {
+  position: fixed; top: 16px; left: 16px; z-index: 10;
+  font-family: 'Courier New', monospace; font-size: 14px;
+  color: var(--primary); text-decoration: none; opacity: 0.5;
+  transition: opacity 0.2s;
+}
+#back:hover { opacity: 1; }
+
+/* Help pill */
+#help-pill {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(5,2,10,0.7); border: 1px solid rgba(57,255,20,0.15);
+  border-radius: 20px; padding: 6px 18px; z-index: 10;
+  font: 12px 'Courier New', monospace; color: rgba(57,255,20,0.5);
+  pointer-events: none; white-space: nowrap;
+  transition: opacity 0.3s;
+}
+@supports (backdrop-filter: blur(8px)) {
+  #help-pill { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(5,2,10,0.4); }
+}
+#help-pill kbd {
+  font: inherit; background: rgba(57,255,20,0.1);
+  border-radius: 3px; padding: 1px 5px; margin: 0 2px;
+}
+#help-pill .sep { margin: 0 6px; opacity: 0.3; }
+
+/* Modal */
+#modal-backdrop {
+  position: fixed; inset: 0; background: rgba(5,2,10,0.9);
+  z-index: 100; display: none; align-items: center; justify-content: center;
+  cursor: auto;
+}
+@supports (backdrop-filter: blur(6px)) {
+  #modal-backdrop { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+}
+#modal-backdrop.open { display: flex; }
+
+#modal-panel {
+  background: rgba(8,12,6,0.95); border: 1px solid rgba(57,255,20,0.15);
+  border-radius: 12px; max-width: 720px; width: 92%; max-height: 85vh;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7); display: flex; flex-direction: column;
+  position: relative;
+}
+#modal-panel .close {
+  position: absolute; top: 12px; right: 16px; background: none; border: none;
+  color: rgba(57,255,20,0.5); font: 20px 'Courier New', monospace; cursor: pointer;
+  padding: 4px 8px; line-height: 1; z-index: 1;
+}
+#modal-panel .close:hover { color: var(--primary); }
+
+#modal-panel h2 {
+  font: 600 20px/1.3 'Courier New', monospace;
+  color: var(--primary); margin: 0; padding: 28px 32px 0;
+  text-transform: uppercase; letter-spacing: 2px;
+}
+
+.modal-body {
+  padding: 20px 32px 28px; overflow-y: auto; max-height: 70vh;
+  font: 14px/1.8 'Courier New', monospace;
+  color: rgba(57,255,20,0.75);
+}
+.modal-body h3 {
+  color: var(--primary); font-size: 14px; margin: 28px 0 8px;
+  text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 1px solid rgba(57,255,20,0.15); padding-bottom: 6px;
+}
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body p { margin: 0 0 14px; }
+.modal-body em { color: rgba(57,255,20,0.5); font-style: italic; }
+.modal-body strong { color: var(--primary); font-weight: normal; }
+.modal-body blockquote {
+  border-left: 2px solid rgba(57,255,20,0.3); margin: 12px 0; padding: 4px 0 4px 16px;
+  color: rgba(57,255,20,0.55); font-style: italic;
+}
+.modal-body ul { margin: 8px 0 14px; padding-left: 20px; }
+.modal-body li { margin: 4px 0; }
+.modal-body li::marker { color: rgba(57,255,20,0.3); }
+
+.modal-body::-webkit-scrollbar { width: 5px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.15); border-radius: 3px; }
+</style>
+</head>
+<body>
+<a id="back" href="/">&lt; back</a>
+<canvas id="c"></canvas>
+
+<div id="help-pill">
+  <kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
+</div>
+
+<div id="modal-backdrop">
+  <div id="modal-panel">
+    <button class="close" aria-label="Close">&times;</button>
+    <h2 id="modal-title"></h2>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+<script>
+(function() {
+  'use strict';
+
+  // --- Canvas refs ---
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const offscreen = document.createElement('canvas');
+  const offCtx = offscreen.getContext('2d');
+
+  // --- Palette (read from CSS custom properties) ---
+  const rootStyles = getComputedStyle(document.documentElement);
+  const BG_COLOR = rootStyles.getPropertyValue('--bg').trim();
+  const PRIMARY_COLOR = rootStyles.getPropertyValue('--primary').trim();
+
+  // --- Constants ---
+  const CHAR_RAMP = [' ', '.', ':', '-', '~', '+', '*', '#', '@', '%'];
+  const SCRAMBLE_RADIUS = 35;
+  const SCRAMBLE_RADIUS_SQ = SCRAMBLE_RADIUS * SCRAMBLE_RADIUS;
+  const DECAY_RATE = 1.8;
+  const TWINKLE_CHANCE = 0.55;
+  const TWINKLE_MIN = 0.12;
+  const TWINKLE_RANGE = 0.18;
+  const BRIGHTNESS_FLOOR = 0.02;
+
+  // --- Mutable state ---
+  let particles = [];
+  let cellSize = 8;
+  let cols, rows;
+  let mouseX = 0, mouseY = 0;
+  let mouseActive = false;
+  let lastTime = 0;
+  let dpr = 1;
+  let displayWidth, displayHeight;
+
+  // --- Draw the TB-303 onto the offscreen canvas ---
+  function draw303(w, h) {
+    offscreen.width = w;
+    offscreen.height = h;
+    offCtx.clearRect(0, 0, w, h);
+
+    // The 303 has a ~2:1 aspect ratio; letterbox to preserve proportions
+    const refW = 1024;
+    const refH = 520;
+    const scale = Math.min(w / refW, h / refH) * 0.92;
+    const ox = (w - refW * scale) / 2;
+    const oy = (h - refH * scale) / 2;
+
+    offCtx.save();
+    offCtx.translate(ox, oy);
+    offCtx.scale(scale, scale);
+
+    const s = 1; // everything is in ref coords now
+
+    // === UPPER CHASSIS (silver panel with knobs) ===
+    const upperY = 0;
+    const upperH = 280;
+
+    // Silver chassis body
+    const chassisGrad = offCtx.createLinearGradient(0, upperY, 0, upperY + upperH);
+    chassisGrad.addColorStop(0, '#c8c8c8');
+    chassisGrad.addColorStop(0.3, '#b8b8b8');
+    chassisGrad.addColorStop(0.7, '#a8a8a8');
+    chassisGrad.addColorStop(1, '#909090');
+    offCtx.fillStyle = chassisGrad;
+    offCtx.beginPath();
+    roundRect(offCtx, 0, upperY, refW, upperH, 8);
+    offCtx.fill();
+
+    // Chassis edge highlight
+    offCtx.strokeStyle = '#d8d8d8';
+    offCtx.lineWidth = 2;
+    offCtx.beginPath();
+    offCtx.moveTo(4, upperY + upperH);
+    offCtx.lineTo(4, upperY + 8);
+    offCtx.lineTo(refW - 4, upperY + 8);
+    offCtx.stroke();
+
+    // Shadow line at bottom of upper panel
+    offCtx.strokeStyle = '#707070';
+    offCtx.lineWidth = 2;
+    offCtx.beginPath();
+    offCtx.moveTo(0, upperY + upperH - 1);
+    offCtx.lineTo(refW, upperY + upperH - 1);
+    offCtx.stroke();
+
+    // --- Top row labels (jack labels) ---
+    offCtx.fillStyle = '#555555';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    const topLabels = ['MIX IN', 'WAVEFORM', 'SYNC IN', '', 'TUNING', 'CUT OFF FREQ', 'RESONANCE', 'ENV MOD', 'DECAY', 'ACCENT', '', 'CV', 'GATE', 'HEADPHONE', 'OUTPUT', 'DC 9V'];
+    for (let i = 0; i < topLabels.length; i++) {
+      if (topLabels[i]) {
+        offCtx.fillText(topLabels[i], 30 + i * 62, upperY + 24);
+      }
+    }
+
+    // Small waveform icons near WAVEFORM label
+    offCtx.strokeStyle = '#666';
+    offCtx.lineWidth = 1.5;
+    const wfX = 92;
+    const wfY = upperY + 16;
+    // Saw
+    offCtx.beginPath();
+    offCtx.moveTo(wfX - 10, wfY + 4);
+    offCtx.lineTo(wfX - 4, wfY - 4);
+    offCtx.lineTo(wfX - 4, wfY + 4);
+    offCtx.stroke();
+    // Square
+    offCtx.beginPath();
+    offCtx.moveTo(wfX + 2, wfY + 4);
+    offCtx.lineTo(wfX + 2, wfY - 4);
+    offCtx.lineTo(wfX + 8, wfY - 4);
+    offCtx.lineTo(wfX + 8, wfY + 4);
+    offCtx.stroke();
+
+    // --- Roland logo (upper left) ---
+    offCtx.fillStyle = '#333333';
+    offCtx.font = 'bold italic 32px "Courier New", monospace';
+    offCtx.textAlign = 'left';
+    offCtx.fillText('Roland', 24, upperY + 68);
+
+    // --- "Bass Line" (upper right) ---
+    offCtx.fillStyle = '#333333';
+    offCtx.font = 'bold italic 36px "Courier New", monospace';
+    offCtx.textAlign = 'right';
+    offCtx.fillText('Bass Line', refW - 24, upperY + 68);
+
+    // --- Six main knobs row ---
+    const knobLabels = ['TUNING', 'CUT OFF FREQ', 'RESONANCE', 'ENV MOD', 'DECAY', 'ACCENT'];
+    const knobStartX = 260;
+    const knobEndX = 820;
+    const knobY = upperY + 90;
+    const knobR = 28;
+
+    for (let i = 0; i < knobLabels.length; i++) {
+      const kx = knobStartX + (knobEndX - knobStartX) * i / (knobLabels.length - 1);
+
+      // Knob shadow
+      offCtx.beginPath();
+      offCtx.arc(kx, knobY + 3, knobR + 2, 0, Math.PI * 2);
+      offCtx.fillStyle = '#808080';
+      offCtx.fill();
+
+      // Knob outer ring
+      offCtx.beginPath();
+      offCtx.arc(kx, knobY, knobR, 0, Math.PI * 2);
+      const knobGrad = offCtx.createRadialGradient(kx - 6, knobY - 8, 2, kx, knobY, knobR);
+      knobGrad.addColorStop(0, '#eeeeee');
+      knobGrad.addColorStop(0.5, '#cccccc');
+      knobGrad.addColorStop(1, '#888888');
+      offCtx.fillStyle = knobGrad;
+      offCtx.fill();
+
+      // Knob center cap
+      offCtx.beginPath();
+      offCtx.arc(kx, knobY, knobR * 0.55, 0, Math.PI * 2);
+      const capGrad = offCtx.createRadialGradient(kx - 3, knobY - 4, 1, kx, knobY, knobR * 0.55);
+      capGrad.addColorStop(0, '#ffffff');
+      capGrad.addColorStop(0.6, '#dddddd');
+      capGrad.addColorStop(1, '#aaaaaa');
+      offCtx.fillStyle = capGrad;
+      offCtx.fill();
+
+      // Knob indicator line
+      const angle = -Math.PI * 0.75 + (i / (knobLabels.length - 1)) * Math.PI * 1.5;
+      offCtx.beginPath();
+      offCtx.moveTo(kx + Math.cos(angle) * knobR * 0.3, knobY + Math.sin(angle) * knobR * 0.3);
+      offCtx.lineTo(kx + Math.cos(angle) * knobR * 0.9, knobY + Math.sin(angle) * knobR * 0.9);
+      offCtx.strokeStyle = '#222222';
+      offCtx.lineWidth = 3;
+      offCtx.stroke();
+
+      // Knob label above
+      offCtx.fillStyle = '#444444';
+      offCtx.font = '9px "Courier New", monospace';
+      offCtx.textAlign = 'center';
+      offCtx.fillText(knobLabels[i], kx, knobY - knobR - 10);
+
+      // Tick marks around knob
+      for (let t = 0; t <= 10; t++) {
+        const ta = -Math.PI * 0.75 + (t / 10) * Math.PI * 1.5;
+        const tx1 = kx + Math.cos(ta) * (knobR + 5);
+        const ty1 = knobY + Math.sin(ta) * (knobR + 5);
+        const tx2 = kx + Math.cos(ta) * (knobR + 9);
+        const ty2 = knobY + Math.sin(ta) * (knobR + 9);
+        offCtx.beginPath();
+        offCtx.moveTo(tx1, ty1);
+        offCtx.lineTo(tx2, ty2);
+        offCtx.strokeStyle = '#777777';
+        offCtx.lineWidth = 1;
+        offCtx.stroke();
+      }
+    }
+
+    // --- TEMPO knob (left side, large) ---
+    const tempoX = 100;
+    const tempoY = upperY + 160;
+    const tempoR = 32;
+
+    offCtx.fillStyle = '#666';
+    offCtx.font = '10px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('TEMPO', tempoX, tempoY - tempoR - 14);
+
+    offCtx.beginPath();
+    offCtx.arc(tempoX, tempoY, tempoR, 0, Math.PI * 2);
+    const tempoGrad = offCtx.createRadialGradient(tempoX - 8, tempoY - 10, 2, tempoX, tempoY, tempoR);
+    tempoGrad.addColorStop(0, '#eeeeee');
+    tempoGrad.addColorStop(0.5, '#cccccc');
+    tempoGrad.addColorStop(1, '#888888');
+    offCtx.fillStyle = tempoGrad;
+    offCtx.fill();
+
+    offCtx.beginPath();
+    offCtx.arc(tempoX, tempoY, tempoR * 0.55, 0, Math.PI * 2);
+    offCtx.fillStyle = '#dddddd';
+    offCtx.fill();
+
+    offCtx.fillStyle = '#777';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.fillText('SLOW', tempoX - tempoR - 10, tempoY + tempoR + 8);
+    offCtx.fillText('FAST', tempoX + tempoR + 10, tempoY + tempoR + 8);
+
+    // --- VOLUME knob (right side, large) ---
+    const volX = refW - 100;
+    const volY = upperY + 160;
+
+    offCtx.fillStyle = '#666';
+    offCtx.font = '10px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('VOLUME', volX, volY - tempoR - 14);
+
+    offCtx.beginPath();
+    offCtx.arc(volX, volY, tempoR, 0, Math.PI * 2);
+    offCtx.fillStyle = tempoGrad;
+    offCtx.fill();
+
+    offCtx.beginPath();
+    offCtx.arc(volX, volY, tempoR * 0.55, 0, Math.PI * 2);
+    offCtx.fillStyle = '#dddddd';
+    offCtx.fill();
+
+    // --- TRACK / PATT.GROUP labels + small knobs (middle row) ---
+    offCtx.fillStyle = '#ff4444';
+    offCtx.font = 'bold 10px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('TRACK', 280, upperY + 148);
+
+    offCtx.fillStyle = '#555';
+    offCtx.font = '10px "Courier New", monospace';
+    offCtx.fillText('PATT. GROUP', 380, upperY + 148);
+
+    // Small selector knobs
+    const selKnobs = [{x: 320, y: upperY + 175}, {x: 410, y: upperY + 175}];
+    for (const sk of selKnobs) {
+      offCtx.beginPath();
+      offCtx.arc(sk.x, sk.y, 16, 0, Math.PI * 2);
+      const skGrad = offCtx.createRadialGradient(sk.x - 3, sk.y - 4, 1, sk.x, sk.y, 16);
+      skGrad.addColorStop(0, '#dddddd');
+      skGrad.addColorStop(1, '#999999');
+      offCtx.fillStyle = skGrad;
+      offCtx.fill();
+    }
+
+    // Roman numerals for PATT.GROUP
+    offCtx.fillStyle = '#666';
+    offCtx.font = '8px "Courier New", monospace';
+    const romans = ['I', 'II', 'III', 'IV'];
+    for (let i = 0; i < 4; i++) {
+      const ra = -Math.PI / 2 + (i / 3) * Math.PI;
+      offCtx.fillText(romans[i], 410 + Math.cos(ra) * 26, upperY + 175 + Math.sin(ra) * 26 + 3);
+    }
+
+    // --- MODE section (center) ---
+    offCtx.fillStyle = '#555';
+    offCtx.font = '10px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('MODE', 520, upperY + 148);
+
+    // Mode selector knob
+    offCtx.beginPath();
+    offCtx.arc(520, upperY + 185, 20, 0, Math.PI * 2);
+    const modeGrad = offCtx.createRadialGradient(517, upperY + 181, 2, 520, upperY + 185, 20);
+    modeGrad.addColorStop(0, '#dddddd');
+    modeGrad.addColorStop(1, '#999999');
+    offCtx.fillStyle = modeGrad;
+    offCtx.fill();
+
+    // Mode labels
+    const modeLabels = ['WRITE', 'PLAY', 'PATTERN'];
+    const modeAngles = [-Math.PI * 0.6, -Math.PI * 0.2, Math.PI * 0.2];
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    for (let i = 0; i < modeLabels.length; i++) {
+      offCtx.fillText(modeLabels[i], 520 + Math.cos(modeAngles[i]) * 38, upperY + 185 + Math.sin(modeAngles[i]) * 32 + 3);
+    }
+
+    // TRACK label on right of mode
+    offCtx.fillText('TRACK', 570, upperY + 165);
+
+    // --- TB-303 / Computer Controlled text (right of center) ---
+    offCtx.fillStyle = '#444444';
+    offCtx.font = 'bold 28px "Courier New", monospace';
+    offCtx.textAlign = 'left';
+    offCtx.fillText('TB-303', 640, upperY + 200);
+
+    offCtx.fillStyle = '#666666';
+    offCtx.font = '14px "Courier New", monospace';
+    offCtx.fillText('Computer Controlled', 640, upperY + 222);
+
+    // --- POWER SW / jack area labels (right edge) ---
+    offCtx.fillStyle = '#666';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('POWER SW OFF', refW - 130, upperY + 250);
+
+    // Horizontal divider line before lower section
+    offCtx.strokeStyle = '#888888';
+    offCtx.lineWidth = 1.5;
+    offCtx.beginPath();
+    offCtx.moveTo(10, upperY + upperH + 2);
+    offCtx.lineTo(refW - 10, upperY + upperH + 2);
+    offCtx.stroke();
+
+    // === LOWER SECTION (keyboard + controls) ===
+    const lowerY = upperH + 4;
+    const lowerH = refH - upperH - 4;
+
+    // Lower panel background (slightly darker silver)
+    const lowerGrad = offCtx.createLinearGradient(0, lowerY, 0, lowerY + lowerH);
+    lowerGrad.addColorStop(0, '#b0b0b0');
+    lowerGrad.addColorStop(1, '#989898');
+    offCtx.fillStyle = lowerGrad;
+    offCtx.beginPath();
+    roundRect(offCtx, 0, lowerY, refW, lowerH, 8);
+    offCtx.fill();
+
+    // --- Left side controls ---
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+
+    // D.C. button
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(14, lowerY + 10, 28, 12);
+    offCtx.fillStyle = '#444';
+    offCtx.font = '7px "Courier New", monospace';
+    offCtx.fillText('D.C.', 28, lowerY + 19);
+
+    // BAR RESET
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(46, lowerY + 10, 44, 12);
+    offCtx.fillStyle = '#444';
+    offCtx.fillText('BAR RESET', 68, lowerY + 19);
+
+    // PATTERN CLEAR
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(14, lowerY + 30, 76, 12);
+    offCtx.fillStyle = '#444';
+    offCtx.fillText('PATTERN CLEAR', 52, lowerY + 39);
+
+    // RUN / STOP button area
+    offCtx.fillStyle = '#777777';
+    offCtx.fillRect(14, lowerY + 80, 76, 28);
+    offCtx.fillStyle = '#333';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.fillText('RUN / STOP', 52, lowerY + 97);
+
+    // RUN LED
+    offCtx.beginPath();
+    offCtx.arc(30, lowerY + 62, 4, 0, Math.PI * 2);
+    offCtx.fillStyle = '#ff3333';
+    offCtx.fill();
+    offCtx.fillStyle = '#555';
+    offCtx.font = '7px "Courier New", monospace';
+    offCtx.fillText('RUN', 30, lowerY + 56);
+    offCtx.fillText('BATTERY', 68, lowerY + 62);
+
+    // FUNCTION LED
+    offCtx.beginPath();
+    offCtx.arc(50, lowerY + 120, 4, 0, Math.PI * 2);
+    offCtx.fillStyle = '#ff3333';
+    offCtx.fill();
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.fillText('FUNCTION', 52, lowerY + 112);
+    offCtx.fillText('NORMAL', 36, lowerY + 138);
+    offCtx.fillText('MODE', 36, lowerY + 148);
+
+    // --- PITCH MODE label ---
+    offCtx.fillStyle = '#555';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.textAlign = 'left';
+    offCtx.fillText('PITCH MODE', 110, lowerY + 16);
+
+    // --- Keyboard (note names above) ---
+    const keyX = 130;
+    const keyY = lowerY + 24;
+    const keyW = 580;
+    const keyH = 80;
+    const numWhiteKeys = 13;
+    const wkW = keyW / numWhiteKeys;
+
+    // Note names
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C'];
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    for (let i = 0; i < noteNames.length; i++) {
+      offCtx.fillText(noteNames[i], keyX + i * wkW + wkW / 2, keyY - 3);
+    }
+
+    // White keys
+    for (let i = 0; i < numWhiteKeys; i++) {
+      const kxx = keyX + i * wkW;
+      const keyGrad = offCtx.createLinearGradient(kxx, keyY, kxx, keyY + keyH);
+      keyGrad.addColorStop(0, '#f0f0f0');
+      keyGrad.addColorStop(0.8, '#e0e0e0');
+      keyGrad.addColorStop(1, '#cccccc');
+      offCtx.fillStyle = keyGrad;
+      offCtx.fillRect(kxx + 1, keyY, wkW - 2, keyH);
+      offCtx.strokeStyle = '#aaaaaa';
+      offCtx.lineWidth = 0.5;
+      offCtx.strokeRect(kxx + 1, keyY, wkW - 2, keyH);
+    }
+
+    // Black keys
+    const blackPattern = [1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1];
+    for (let i = 0; i < blackPattern.length; i++) {
+      if (blackPattern[i]) {
+        const bkx = keyX + (i + 0.65) * wkW;
+        const bkGrad = offCtx.createLinearGradient(bkx, keyY, bkx, keyY + keyH * 0.6);
+        bkGrad.addColorStop(0, '#333333');
+        bkGrad.addColorStop(0.7, '#222222');
+        bkGrad.addColorStop(1, '#444444');
+        offCtx.fillStyle = bkGrad;
+        offCtx.fillRect(bkx, keyY, wkW * 0.55, keyH * 0.6);
+      }
+    }
+
+    // DEL / INS labels on specific keys
+    offCtx.fillStyle = '#ff4444';
+    offCtx.font = 'bold 8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('DEL', keyX + 2.5 * wkW, keyY + keyH - 8);
+    offCtx.fillText('INS', keyX + 4.5 * wkW, keyY + keyH - 8);
+
+    // --- Right side controls ---
+    // TRANSPOSE DOWN/UP with symbols
+    const rightX = 740;
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('TRANSPOSE', rightX + 20, lowerY + 52);
+    offCtx.fillText('DOWN', rightX, lowerY + 64);
+    offCtx.fillText('UP', rightX + 40, lowerY + 64);
+
+    // Music note symbols
+    offCtx.font = '16px "Courier New", monospace';
+    offCtx.fillStyle = '#666';
+    offCtx.fillText('\u266A', rightX - 10, lowerY + 42);
+    offCtx.fillText('\u266B', rightX + 50, lowerY + 42);
+
+    // TIME MODE label
+    offCtx.fillStyle = '#555';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.fillText('TIME MODE', 860, lowerY + 16);
+
+    // ACCENT + SLIDE buttons
+    const accentX = 840;
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(accentX, lowerY + 30, 48, 24);
+    offCtx.fillRect(accentX + 56, lowerY + 30, 48, 24);
+    offCtx.fillStyle = '#333';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.fillText('ACCENT', accentX + 24, lowerY + 46);
+    offCtx.fillText('SLIDE', accentX + 80, lowerY + 46);
+
+    // --- Step buttons row (PATTERN / numbered) ---
+    const stepY = lowerY + 112;
+    const stepStartX = 140;
+    const stepW = 52;
+
+    // SELECTOR row label
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'left';
+    offCtx.fillText('SELECTOR', 100, stepY + 40);
+
+    // BAR / PATTERN labels
+    offCtx.fillStyle = '#ff4444';
+    offCtx.font = 'bold 8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('BAR', stepStartX - 20, stepY - 4);
+    offCtx.fillText('PATTERN', stepStartX + 16, stepY - 4);
+
+    for (let i = 0; i < 12; i++) {
+      const sx = stepStartX + i * stepW;
+
+      // Top button (step indicator)
+      offCtx.fillStyle = i < 4 ? '#ff4444' : '#555555';
+      offCtx.fillRect(sx, stepY, 40, 8);
+
+      // Number button below
+      offCtx.fillStyle = '#666666';
+      offCtx.fillRect(sx, stepY + 14, 40, 18);
+      offCtx.fillStyle = '#ddd';
+      offCtx.font = '11px "Courier New", monospace';
+      offCtx.textAlign = 'center';
+      offCtx.fillText(String(i + 1), sx + 20, stepY + 27);
+    }
+
+    // Additional STEP row
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.textAlign = 'center';
+    offCtx.fillText('STEP', 770, stepY + 27);
+
+    // --- Right side: BACK, WRITE/NEXT, D.S., 100/200 buttons ---
+    const rbX = refW - 80;
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(rbX, lowerY + 14, 50, 28);
+    offCtx.fillStyle = '#333';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.fillText('BACK', rbX + 25, lowerY + 32);
+
+    // D.S. label
+    offCtx.fillStyle = '#ff4444';
+    offCtx.font = 'italic bold 12px "Courier New", monospace';
+    offCtx.fillText('D.S.', rbX + 25, lowerY + 70);
+
+    // WRITE/NEXT
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(rbX, lowerY + 80, 50, 28);
+    offCtx.fillStyle = '#333';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.fillText('WRITE/NEXT', rbX + 25, lowerY + 98);
+
+    // TAP
+    offCtx.fillStyle = '#555';
+    offCtx.font = '8px "Courier New", monospace';
+    offCtx.fillText('TAP', rbX + 25, lowerY + 122);
+
+    // PATT.SECTION / 100 / 200 buttons
+    offCtx.fillStyle = '#ff4444';
+    offCtx.font = '7px "Courier New", monospace';
+    offCtx.fillText('PATT.SECTION', rbX - 20, stepY - 4);
+    offCtx.fillStyle = '#888888';
+    offCtx.fillRect(rbX - 40, stepY + 4, 32, 18);
+    offCtx.fillRect(rbX - 4, stepY + 4, 32, 18);
+    offCtx.fillStyle = '#333';
+    offCtx.font = '9px "Courier New", monospace';
+    offCtx.fillText('100', rbX - 24, stepY + 17);
+    offCtx.fillText('200', rbX + 12, stepY + 17);
+
+    // --- Scattered LEDs along step row ---
+    for (let i = 0; i < 12; i++) {
+      offCtx.beginPath();
+      offCtx.arc(stepStartX + i * stepW + 20, stepY - 12, 3, 0, Math.PI * 2);
+      offCtx.fillStyle = '#ff3333';
+      offCtx.fill();
+    }
+
+    offCtx.restore();
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+  }
+
+  // --- Helpers ---
+  let imageData = null;
+
+  function sampleBrightness(x, y) {
+    if (!imageData) return 0;
+    const px = Math.round(x);
+    const py = Math.round(y);
+    if (px < 0 || px >= displayWidth * dpr || py < 0 || py >= displayHeight * dpr) return 0;
+    const idx = (py * displayWidth * dpr + px) * 4;
+    return (0.299 * imageData[idx] + 0.587 * imageData[idx + 1] + 0.114 * imageData[idx + 2]) / 255;
+  }
+
+  function charForBrightness(brightness) {
+    const idx = Math.min(CHAR_RAMP.length - 1, Math.floor(brightness * CHAR_RAMP.length));
+    return CHAR_RAMP[idx];
+  }
+
+  // --- Init ---
+  function init() {
+    draw303(displayWidth * dpr, displayHeight * dpr);
+    const raw = offCtx.getImageData(0, 0, displayWidth * dpr, displayHeight * dpr);
+    imageData = raw.data;
+
+    cellSize = Math.max(5, Math.round(7 * (displayWidth / 1280)));
+    cols = Math.ceil(displayWidth / cellSize);
+    rows = Math.ceil(displayHeight / cellSize);
+
+    particles = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const homeX = col * cellSize + cellSize / 2;
+        const homeY = row * cellSize + cellSize / 2;
+        // Sample at DPI-scaled coords
+        const sampleX = Math.round(homeX * dpr);
+        const sampleY = Math.round(homeY * dpr);
+        const brightness = sampleBrightness(sampleX, sampleY);
+        particles.push({
+          x: homeX, y: homeY,
+          brightness: brightness,
+          restChar: charForBrightness(brightness),
+          displayChar: charForBrightness(brightness),
+          scramble: 0
+        });
+      }
+    }
+  }
+
+  // --- Resize (DPI-aware) ---
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    displayWidth = window.innerWidth;
+    displayHeight = window.innerHeight;
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    ctx.scale(dpr, dpr);
+    init();
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  // --- Input ---
+  canvas.addEventListener('mousemove', function(e) {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    mouseActive = true;
+  });
+
+  canvas.addEventListener('mouseleave', function() {
+    mouseActive = false;
+  });
+
+  canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+    mouseActive = true;
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', function() {
+    mouseActive = false;
+  });
+
+  // --- Update (state only, no drawing) ---
+  function update(dt) {
+    // Ambient twinkle
+    if (Math.random() < TWINKLE_CHANCE) {
+      const target = particles[Math.random() * particles.length | 0];
+      if (target.brightness > 0.05 && target.scramble < 0.01) {
+        target.scramble = TWINKLE_MIN + Math.random() * TWINKLE_RANGE;
+      }
+    }
+
+    for (let i = 0, len = particles.length; i < len; i++) {
+      const particle = particles[i];
+
+      if (particle.brightness < BRIGHTNESS_FLOOR) continue;
+
+      // Mouse proximity — subtle char shift
+      if (mouseActive) {
+        const dx = particle.x - mouseX;
+        const dy = particle.y - mouseY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < SCRAMBLE_RADIUS_SQ) {
+          const dist = Math.sqrt(distSq);
+          const proximity = 1 - dist / SCRAMBLE_RADIUS;
+          particle.scramble = Math.min(1, particle.scramble + proximity * proximity * proximity * 0.4);
+        }
+      }
+
+      // Decay back to rest
+      if (particle.scramble > 0) {
+        particle.scramble = Math.max(0, particle.scramble - DECAY_RATE * dt);
+
+        if (particle.scramble > 0.03 && Math.random() < particle.scramble * 0.6) {
+          const baseIdx = Math.min(CHAR_RAMP.length - 1, Math.floor(particle.brightness * CHAR_RAMP.length));
+          const shift = (Math.random() < 0.5 ? -1 : 1) * (1 + (Math.random() * 2 | 0));
+          const newIdx = Math.max(1, Math.min(CHAR_RAMP.length - 1, baseIdx + shift));
+          particle.displayChar = CHAR_RAMP[newIdx];
+        } else if (particle.scramble <= 0.03) {
+          particle.displayChar = particle.restChar;
+        }
+      }
+    }
+  }
+
+  // --- Render (drawing only, no state mutation) ---
+  function render() {
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    ctx.font = cellSize + 'px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0;
+
+    for (let i = 0, len = particles.length; i < len; i++) {
+      const particle = particles[i];
+      if (particle.brightness < BRIGHTNESS_FLOOR) continue;
+      ctx.globalAlpha = particle.brightness;
+      ctx.fillStyle = PRIMARY_COLOR;
+      ctx.fillText(particle.displayChar, particle.x, particle.y);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Main loop ---
+  function frame(time) {
+    requestAnimationFrame(frame);
+    const dt = Math.min((time - lastTime) / 1000, 0.05);
+    lastTime = time;
+    update(dt);
+    render();
+  }
+
+  requestAnimationFrame(frame);
+
+  // ==========================================================================
+  // KEYBOARD COMMANDS
+  // ==========================================================================
+
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBodyEl = document.getElementById('modal-body');
+  const modalClose = modalBackdrop.querySelector('.close');
+
+  let modalOpen = false;
+
+  function openModal(title, contentFn) {
+    modalTitle.textContent = title;
+    // Build content using safe DOM methods
+    modalBodyEl.textContent = '';
+    contentFn(modalBodyEl);
+    modalBackdrop.classList.add('open');
+    modalOpen = true;
+  }
+
+  function closeModal() {
+    modalBackdrop.classList.remove('open');
+    modalOpen = false;
+  }
+
+  modalClose.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', function(e) {
+    if (e.target === modalBackdrop) closeModal();
+  });
+
+  // --- DOM helpers for modal content ---
+  function h3(parent, text) {
+    const el = document.createElement('h3');
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  function p(parent, parts) {
+    const el = document.createElement('p');
+    if (typeof parts === 'string') {
+      el.textContent = parts;
+    } else {
+      parts.forEach(function(part) {
+        if (typeof part === 'string') {
+          el.appendChild(document.createTextNode(part));
+        } else if (part.strong) {
+          const s = document.createElement('strong');
+          s.textContent = part.strong;
+          el.appendChild(s);
+        } else if (part.em) {
+          const e = document.createElement('em');
+          e.textContent = part.em;
+          el.appendChild(e);
+        }
+      });
+    }
+    parent.appendChild(el);
+  }
+
+  function quote(parent, text) {
+    const el = document.createElement('blockquote');
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  function ul(parent, items) {
+    const list = document.createElement('ul');
+    items.forEach(function(item) {
+      const li = document.createElement('li');
+      if (typeof item === 'string') {
+        li.textContent = item;
+      } else {
+        item.forEach(function(part) {
+          if (typeof part === 'string') {
+            li.appendChild(document.createTextNode(part));
+          } else if (part.strong) {
+            const s = document.createElement('strong');
+            s.textContent = part.strong;
+            li.appendChild(s);
+          }
+        });
+      }
+      list.appendChild(li);
+    });
+    parent.appendChild(list);
+  }
+
+  // --- Modal: History ---
+  function historyContent(el) {
+    h3(el, 'The Machine Nobody Wanted');
+    p(el, [
+      'In 1981, Roland engineer ', {strong: 'Tadao Kikumoto'}, ' \u2014 the same mind behind the TR-808 \u2014 designed the TB-303 as a portable bass accompaniment for solo guitarists. "TB" stood for "Transistor Bass." It retailed for ', {strong: '$395'}, ' and was meant to pair with the TR-606 drum machine.'
+    ]);
+    p(el, [
+      'It was a commercial disaster. Guitarists wanted something that sounded like a Fender Precision, and the 303 sounded like an angry robot gargling battery acid. Roland discontinued it after 18 months. Only ', {strong: '~10,000 units'}, ' were ever made. By 1985, they sat in pawn shops for $40.'
+    ]);
+
+    h3(el, 'The Sound: Why It Squelches');
+    p(el, [
+      'The 303\u2019s voice comes from a single oscillator (sawtooth or square wave) fed through a ', {strong: 'diode ladder low-pass filter'}, ' \u2014 a 4-pole design inspired by Bob Moog\u2019s transistor ladder, but built with transistors wired as diodes. The critical difference: the 4th pole is staggered roughly an octave above the other three, so it behaves more like an 18dB/octave filter than a true 24dB. The result is brighter and more aggressive than a Moog \u2014 it retains more harmonics above the cutoff.'
+    ]);
+    p(el, [
+      'The filter is ', {strong: 'non-self-oscillating'}, '. Crank the resonance to maximum and it won\u2019t produce a pure sine tone like a Moog or MS-20. Instead, you get the famous "squelch" \u2014 a sharp, nasal scream at the cutoff frequency that\u2019s all bark and no whistle.'
+    ]);
+    p(el, 'The acid sound emerges from three things in collision: high resonance creating a peak at the cutoff frequency, envelope modulation sweeping that cutoff up and down with each note trigger, and the nonlinear diode ladder adding harmonic distortion as resonance increases. The accent circuit amplifies all of this simultaneously \u2014 it\u2019s not just a volume boost, it opens the filter further, increases resonance, and shortens decay in one hit.');
+
+    h3(el, 'The Accident');
+    p(el, [
+      'Chicago, 1985. ', {strong: 'DJ Pierre'}, ', ', {strong: 'Spanky'}, ', and ', {strong: 'Herb J'}, ' \u2014 three friends from the South Side who called themselves ', {strong: 'Phuture'}, ' \u2014 got their hands on a used 303. They didn\u2019t read the manual. They didn\u2019t try to program bass lines. They just started twisting knobs while the sequencer ran.'
+    ]);
+    quote(el, '"When we made \'Acid Tracks\', that was an accident. It was just ignorance, basically. Not knowing how to work the damn 303."');
+    p(el, [
+      'They brought a cassette to ', {strong: 'Ron Hardy'}, ' at the Muzic Box, the legendary after-hours club on South Michigan Avenue where the bass was so heavy it moved you physically anywhere in the room. Hardy listened in silence for 30 minutes, then asked: ', {em: '"When can I get a copy?"'}
+    ]);
+    p(el, 'The first time Hardy dropped it, the floor cleared. Nobody knew what they were hearing. But Hardy kept playing it \u2014 three, four more times that same night. By 4 AM, people were dancing upside down. He played it every night for weeks. Fans bootlegged it on microcassettes. They called it "Ron Hardy\u2019s Acid Track." The name stuck.');
+    p(el, [
+      {strong: 'Marshall Jefferson'}, ' helped produce the release, slowing the tempo from ~130 to 120 BPM. "Acid Tracks" came out on Trax Records in 1987. Each member of Phuture received $1,500.'
+    ]);
+
+    h3(el, 'The Name');
+    quote(el, '"Acid makes a gritty sound... you have battery acid... I thought, okay, this thing is gritty. It\'s like acidic! It\'s a tough sound!"');
+    p(el, 'The B-side, "Your Only Friend," was an anti-drug track.');
+
+    h3(el, 'The Sequencer\u2019s Beautiful Failure');
+    p(el, [
+      'The 303\u2019s step sequencer requires ', {strong: 'three separate passes'}, ' to program a pattern: pitch, then timing, then accents and slides. Pitch and timing are stored independently and combined on playback. It was nearly impossible to predict what a pattern would sound like until you hit play.'
+    ]);
+    p(el, 'For guitarists, this was infuriating. For the Chicago producers who inherited these machines, it was liberation. You\u2019d program something, hit play, and the machine would spit out something you never intended. The happy accidents became the music.');
+    p(el, [
+      'And because the sequencer was so hard to edit, producers found it easier to leave a pattern running and ', {strong: 'manipulate the sound with the six front-panel knobs'}, ' \u2014 cutoff, resonance, envelope mod, decay, accent, tuning. This is exactly what Phuture did. The difficulty of the sequencer and the accessibility of the knobs created the performance style that defined acid house.'
+    ]);
+
+    h3(el, 'The Slide');
+    p(el, [
+      'When a note is marked with slide, the pitch glides from the current note into the next one over 60\u2013360ms. During a slide, the envelope doesn\u2019t retrigger \u2014 notes melt into each other in legato. Combined with accent, slide creates the liquid, vocal quality that makes 303 lines feel alive. As ', {strong: 'Robin Whittle'}, ' (creator of the Devilfish modification) put it: accent and slide are the two most important components of the entire instrument.'
+    ]);
+
+    h3(el, 'Crossing the Atlantic');
+    p(el, [
+      {strong: 'The Ha\u00e7ienda'}, ' in Manchester, owned by Factory Records and New Order, had been hemorrhaging money since 1982. By 1988, acid house packed it every night. In London, ', {strong: 'Danny Rampling'}, ' opened Shoom after a transformative trip to Ibiza. ', {strong: 'Paul Oakenfold'}, ' launched Spectrum. The smiley face became the movement\u2019s emblem.'
+    ]);
+    p(el, [
+      'In Manchester, ', {strong: '808 State'}, ' formed in 1987 \u2014 named after the TR-808. ', {strong: 'A Guy Called Gerald'}, ' recorded "Voodoo Ray" in 1988, which spent 18 weeks on the UK Singles Chart and was later called ', {em: '"pretty much the first British acid house record"'}, ' by Mixmag.'
+    ]);
+    p(el, [
+      'The ', {strong: 'Second Summer of Love'}, ' (1988\u201389) saw warehouse parties and illegal raves spread across the English countryside. The movement was credited with reducing football hooliganism \u2014 rival fans danced together instead of fighting. On January 27, 1990, 8,000 people marched to Trafalgar Square for the "Freedom to Party" rally.'
+    ]);
+    p(el, 'A $395 Japanese bass machine, commercially dead by 1984, had become the sonic engine of the largest youth counterculture movement in Britain since punk.');
+
+    h3(el, 'The Diaspora');
+    p(el, [
+      {strong: 'Hardfloor'}, ' used up to six 303s simultaneously. ', {strong: 'Jeff Mills'}, ' ran a 303 alongside two TR-909s in Underground Resistance. ', {strong: 'Richie Hawtin'}, ' (Plastikman) built an entire minimal aesthetic around it.'
+    ]);
+    p(el, [
+      {strong: 'Aphex Twin'}, '\u2019s 1991 "Analogue Bubblebath" and 1992\u2019s "Digeridoo" fused 303 acid with breakbeats. ', {strong: 'Daft Punk'}, '\u2019s "Da Funk" (1995) put a distorted 303 riff into one of the most recognizable hooks in electronic music.'
+    ]);
+
+    h3(el, 'Why Clones Can\u2019t Quite Nail It');
+    p(el, 'The x0xb0x (open-source DIY), the Behringer TD-3 ($99), the Cyclone TT-303 \u2014 they all get close. But the original used specific 0.5% tolerance resistors in the filter. The diode ladder\u2019s nonlinear pole coupling, the staggered 4th pole, and 40 years of component drift mean every original 303 sounds slightly different from every other one. Roland\u2019s own TB-03 Boutique (2017) uses digital modeling. None of them are analog. None use the original diode ladder circuit.');
+
+    h3(el, 'The Price');
+    ul(el, [
+      [{strong: '1981: '}, '$395 retail'],
+      [{strong: '1985: '}, '$40\u2013$100 in pawn shops'],
+      [{strong: '2025: '}, '$3,000\u2013$5,000+ for clean working units']
+    ]);
+    p(el, 'Roland\u2019s greatest commercial failure became its most enduring icon.');
+  }
+
+  // --- Modal: Controls ---
+  function controlsContent(el) {
+    h3(el, 'Keyboard Commands');
+    ul(el, [
+      [{strong: 'M'}, ' \u2014 History & science of the TB-303'],
+      [{strong: '?'}, ' \u2014 This help screen'],
+      [{strong: 'Esc'}, ' \u2014 Close modal']
+    ]);
+    h3(el, 'Mouse / Touch');
+    p(el, 'Move the cursor over the 303 to scramble nearby ASCII characters. They settle back on their own.');
+  }
+
+  // --- Keymap ---
+  const KEYMAP = {
+    'm': function() { openModal('TB-303 / Bass Line', historyContent); },
+    '?': function() { openModal('Controls', controlsContent); },
+    'Escape': closeModal,
+  };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    const key = e.key;
+    const handler = KEYMAP[key] || KEYMAP[key.toLowerCase()];
+    if (handler) {
+      e.preventDefault();
+      if (modalOpen && key !== 'Escape') {
+        closeModal();
+        setTimeout(function() { handler(); }, 50);
+      } else {
+        handler();
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

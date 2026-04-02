@@ -117,13 +117,8 @@ def build():
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(rendered, encoding="utf-8")
 
-    # Use mirrorball as the homepage
-    mirrorball_src = OUTPUT_DIR / "mirrorball.html"
-    mirrorball_dst = OUTPUT_DIR / "index.html"
-    if mirrorball_src.exists():
-        shutil.copy2(mirrorball_src, mirrorball_dst)
-        mirrorball_src.unlink()
-        print("  Installed mirrorball.html as index.html")
+    # index.html is copied from static/ as-is (the landing page)
+    # mirrorball.html and tb303.html are also served from static/
 
     print(f"\n  Built {len(md_files)} pages to {OUTPUT_DIR}")
 

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>benjaminconnelly.com</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #0a0a0f;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  color: #ccc;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 48px;
+  user-select: none;
+}
+
+.title h1 {
+  font-size: clamp(18px, 3vw, 32px);
+  color: #39FF14;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+}
+
+.title .sub {
+  font-size: clamp(10px, 1.5vw, 14px);
+  color: #555;
+  margin-top: 8px;
+  letter-spacing: 3px;
+}
+
+.cards {
+  display: flex;
+  gap: clamp(24px, 6vw, 80px);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 0 20px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  transition: transform 0.3s ease;
+}
+
+.card:hover { transform: scale(1.05); }
+
+.card .frame {
+  width: clamp(160px, 25vw, 280px);
+  height: clamp(160px, 25vw, 280px);
+  border: 3px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+}
+
+.card:hover .frame {
+  border-color: #39FF14;
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.15);
+}
+
+.card .label {
+  margin-top: 16px;
+  font-size: clamp(12px, 1.8vw, 18px);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #888;
+  transition: color 0.3s;
+}
+
+.card:hover .label { color: #39FF14; }
+
+canvas { display: block; width: 100%; height: 100%; }
+
+.footer {
+  position: fixed;
+  bottom: 16px;
+  font-size: 11px;
+  color: #333;
+  letter-spacing: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="title">
+  <h1>Benjamin Connelly</h1>
+  <div class="sub">experiments in light and sound</div>
+</div>
+
+<div class="cards">
+  <a class="card" href="/mirrorball.html">
+    <div class="frame">
+      <canvas id="mirrorball-preview"></canvas>
+    </div>
+    <span class="label">Mirrorball</span>
+  </a>
+
+  <a class="card" href="/tb303.html">
+    <div class="frame">
+      <canvas id="tb303-preview"></canvas>
+    </div>
+    <span class="label">TB-303</span>
+  </a>
+</div>
+
+<div class="footer">click to enter</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Mirrorball preview: spinning disco ball with reflected light ---
+  const mbCanvas = document.getElementById('mirrorball-preview');
+  const mbCtx = mbCanvas.getContext('2d');
+
+  function initMirrorball() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = mbCanvas.getBoundingClientRect();
+    mbCanvas.width = rect.width * dpr;
+    mbCanvas.height = rect.height * dpr;
+    mbCtx.scale(dpr, dpr);
+    return { w: rect.width, h: rect.height };
+  }
+
+  let mbSize = initMirrorball();
+  const mirrorTiles = [];
+
+  // Generate tile positions on a sphere
+  for (let lat = -80; lat <= 80; lat += 12) {
+    const r = Math.cos(lat * Math.PI / 180);
+    const circumference = Math.max(1, Math.round(r * 28));
+    for (let i = 0; i < circumference; i++) {
+      const lon = (i / circumference) * 360;
+      mirrorTiles.push({
+        lat: lat * Math.PI / 180,
+        lon: lon * Math.PI / 180,
+        flicker: Math.random()
+      });
+    }
+  }
+
+  function drawMirrorball(time) {
+    const w = mbSize.w, h = mbSize.h;
+    const cx = w / 2, cy = h / 2;
+    const radius = Math.min(w, h) * 0.35;
+    const rot = time * 0.0004;
+
+    mbCtx.fillStyle = '#000';
+    mbCtx.fillRect(0, 0, w, h);
+
+    // Spotlight glow
+    const grad = mbCtx.createRadialGradient(cx, cy, 0, cx, cy, radius * 1.4);
+    grad.addColorStop(0, 'rgba(255,255,255,0.04)');
+    grad.addColorStop(1, 'transparent');
+    mbCtx.fillStyle = grad;
+    mbCtx.fillRect(0, 0, w, h);
+
+    // Reflected light beams
+    const beamCount = 12;
+    for (let i = 0; i < beamCount; i++) {
+      const angle = rot * 2 + (i / beamCount) * Math.PI * 2;
+      const bx = cx + Math.cos(angle) * radius * 2.5;
+      const by = cy + Math.sin(angle) * radius * 2.5;
+      const pulse = 0.3 + 0.7 * Math.abs(Math.sin(time * 0.002 + i));
+      mbCtx.beginPath();
+      mbCtx.arc(bx, by, 3 + pulse * 4, 0, Math.PI * 2);
+      mbCtx.fillStyle = `rgba(255,255,255,${0.15 * pulse})`;
+      mbCtx.fill();
+    }
+
+    // Ball
+    for (let i = 0; i < mirrorTiles.length; i++) {
+      const t = mirrorTiles[i];
+      const x3d = Math.cos(t.lat) * Math.sin(t.lon + rot);
+      const y3d = Math.sin(t.lat);
+      const z3d = Math.cos(t.lat) * Math.cos(t.lon + rot);
+
+      if (z3d < -0.1) continue;
+
+      const screenX = cx + x3d * radius;
+      const screenY = cy + y3d * radius;
+      const size = (z3d + 1) * 2.5 + 1;
+
+      // Specular highlight based on angle to light source (top-right)
+      const lightAngle = x3d * 0.5 + y3d * -0.5 + z3d * 0.7;
+      const specular = Math.max(0, lightAngle);
+      const flicker = 0.5 + 0.5 * Math.sin(time * 0.003 + t.flicker * 20);
+
+      const brightness = Math.round((specular * 0.7 + 0.15 + flicker * 0.15) * 255);
+      const r = Math.min(255, brightness);
+      const g = Math.min(255, Math.round(brightness * 0.95));
+      const b = Math.min(255, Math.round(brightness * 1.1));
+
+      mbCtx.fillStyle = `rgb(${r},${g},${b})`;
+      mbCtx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
+    }
+  }
+
+  // --- TB-303 preview: ASCII acid rave card ---
+  const tbCanvas = document.getElementById('tb303-preview');
+  const tbCtx = tbCanvas.getContext('2d');
+
+  // Palette
+  const TB_BG = '#05020a';
+  const TB_GREEN = '#39FF14';
+  const TB_MAGENTA = '#FF00FF';
+  const TB_DIM = '#0a3a06';
+
+  // ASCII grid for the 303 silhouette — each row is a string
+  // Chars represent: . = empty, # = chassis, K = knob, W = white key, B = black key, S = step btn
+  const TB_MAP = [
+    '...........................',
+    '.#########################.',
+    '.#.Roland.....Bass.Line.#.',
+    '.#.........................#.',
+    '.#..K..K..K..K..K..K...#.',
+    '.#.........................#.',
+    '.#########################.',
+    '.#.WWBWWBWWWBWWBWWBWW.#.',
+    '.#.WWBWWBWWWBWWBWWBWW.#.',
+    '.#.........................#.',
+    '.#.SSSSSSSSSSSSSSSS....#.',
+    '.#########################.',
+    '...........................',
+  ];
+
+  // Pre-bake character assignments at init
+  const TB_RAMP = ['.', ':', '-', '~', '+', '*', '#', '@', '%'];
+  const tbCells = [];
+
+  function initTb303() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = tbCanvas.getBoundingClientRect();
+    tbCanvas.width = rect.width * dpr;
+    tbCanvas.height = rect.height * dpr;
+    tbCtx.scale(dpr, dpr);
+    const size = { w: rect.width, h: rect.height };
+
+    // Build cell grid
+    tbCells.length = 0;
+    const gridRows = TB_MAP.length;
+    const gridCols = TB_MAP[0].length;
+    const cellW = size.w / gridCols;
+    const cellH = size.h / gridRows;
+
+    for (let row = 0; row < gridRows; row++) {
+      for (let col = 0; col < gridCols; col++) {
+        const mapChar = TB_MAP[row][col];
+        if (mapChar === '.') continue;
+        tbCells.push({
+          x: col * cellW + cellW / 2,
+          y: row * cellH + cellH / 2,
+          type: mapChar,
+          char: TB_RAMP[4 + (Math.random() * 5 | 0)],
+          phase: Math.random() * Math.PI * 2,
+          row: row,
+          col: col
+        });
+      }
+    }
+
+    return size;
+  }
+
+  let tbSize = initTb303();
+
+  // Sequencer: 16 steps at ~140 BPM (428ms per step)
+  const STEP_MS = 428;
+  const NUM_STEPS = 16;
+  // Pattern: which steps are accented (for visual punch)
+  const ACCENTS = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0];
+
+  function drawTb303(time) {
+    const w = tbSize.w, h = tbSize.h;
+    const currentStep = Math.floor(time / STEP_MS) % NUM_STEPS;
+    const stepPhase = (time % STEP_MS) / STEP_MS; // 0-1 within step
+
+    tbCtx.fillStyle = TB_BG;
+    tbCtx.fillRect(0, 0, w, h);
+
+    // Global breath — slow luminance pulse
+    const breath = 0.7 + 0.3 * Math.sin(time * 0.0015);
+
+    const fontSize = Math.max(6, Math.round(w / 22));
+    tbCtx.font = `${fontSize}px "Courier New", monospace`;
+    tbCtx.textAlign = 'center';
+    tbCtx.textBaseline = 'middle';
+
+    for (let i = 0; i < tbCells.length; i++) {
+      const cell = tbCells[i];
+      let alpha, color, char;
+
+      if (cell.type === 'S') {
+        // Step sequencer row — animate the running step
+        const stepIdx = cell.col - TB_MAP[cell.row].indexOf('S');
+        if (stepIdx >= 0 && stepIdx < NUM_STEPS) {
+          const isActive = stepIdx === currentStep;
+          const wasRecent = stepIdx === (currentStep - 1 + NUM_STEPS) % NUM_STEPS;
+          const isAccent = ACCENTS[stepIdx];
+
+          if (isActive) {
+            color = isAccent ? TB_MAGENTA : TB_GREEN;
+            alpha = 1;
+            char = isAccent ? '@' : '#';
+            // Glow on active step
+            tbCtx.shadowBlur = 8;
+            tbCtx.shadowColor = color;
+          } else if (wasRecent) {
+            color = TB_GREEN;
+            alpha = 0.5 * (1 - stepPhase);
+            char = '*';
+            tbCtx.shadowBlur = 0;
+          } else {
+            color = TB_DIM;
+            alpha = 0.4;
+            char = '.';
+            tbCtx.shadowBlur = 0;
+          }
+        } else {
+          continue;
+        }
+      } else if (cell.type === 'K') {
+        // Knobs — slow rotation via cycling chars
+        const knobPhase = Math.floor(time * 0.003 + cell.phase * 3) % TB_RAMP.length;
+        char = TB_RAMP[knobPhase];
+        color = TB_GREEN;
+        alpha = 0.8 * breath;
+        tbCtx.shadowBlur = 0;
+      } else if (cell.type === 'W') {
+        // White keys — bright, slight shimmer
+        const shimmer = 0.8 + 0.2 * Math.sin(time * 0.004 + cell.phase * 10);
+        char = TB_RAMP[6 + (Math.random() < 0.02 ? 1 : 0)];
+        color = TB_GREEN;
+        alpha = shimmer * breath;
+        tbCtx.shadowBlur = 0;
+      } else if (cell.type === 'B') {
+        // Black keys — darker
+        char = ':';
+        color = TB_GREEN;
+        alpha = 0.25 * breath;
+        tbCtx.shadowBlur = 0;
+      } else {
+        // Chassis body — gentle random twinkle
+        if (Math.random() < 0.005) {
+          cell.char = TB_RAMP[3 + (Math.random() * 4 | 0)];
+        }
+        char = cell.char;
+        color = TB_GREEN;
+        alpha = (0.25 + 0.15 * Math.sin(time * 0.002 + cell.phase * 6)) * breath;
+        tbCtx.shadowBlur = 0;
+      }
+
+      tbCtx.globalAlpha = alpha;
+      tbCtx.fillStyle = color;
+      tbCtx.fillText(char, cell.x, cell.y);
+    }
+
+    tbCtx.shadowBlur = 0;
+    tbCtx.globalAlpha = 1;
+
+    // Scanline effect — faint horizontal lines
+    tbCtx.fillStyle = 'rgba(0,0,0,0.08)';
+    for (let y = 0; y < h; y += 3) {
+      tbCtx.fillRect(0, y, w, 1);
+    }
+
+    // "TB-303" label — glowing, pulsing
+    const labelAlpha = 0.5 + 0.3 * Math.sin(time * 0.003);
+    tbCtx.globalAlpha = labelAlpha;
+    tbCtx.fillStyle = TB_GREEN;
+    tbCtx.shadowBlur = 12;
+    tbCtx.shadowColor = TB_GREEN;
+    tbCtx.font = `bold ${Math.round(w * 0.08)}px "Share Tech Mono", "Courier New", monospace`;
+    tbCtx.textAlign = 'center';
+    tbCtx.textBaseline = 'middle';
+    tbCtx.fillText('TB-303', w / 2, h * 0.14);
+    tbCtx.shadowBlur = 0;
+    tbCtx.globalAlpha = 1;
+  }
+
+  // --- Resize ---
+  window.addEventListener('resize', function() {
+    mbSize = initMirrorball();
+    tbSize = initTb303();
+  });
+
+  // --- Animate ---
+  function animate(time) {
+    requestAnimationFrame(animate);
+    drawMirrorball(time);
+    drawTb303(time);
+  }
+
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

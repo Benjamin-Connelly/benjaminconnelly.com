@@ -33,12 +33,24 @@ docs/                     Project documentation
 # Build the site
 make build                    # or: python3 site/build.py
 
+# Local development
+make dev                      # build + serve at http://localhost:8000
+make watch                    # build + serve + auto-rebuild on file changes
+make open                     # build + serve + open browser
+
 # Build and deploy to production
 make push                     # builds, then runs Ansible deploy
 
 # Clean generated output
 make clean
 ```
+
+## Skills
+
+| Trigger phrases | Skill file |
+|---|---|
+| `build`, `push`, `deploy`, `go live`, `make dev`, `preview`, `watch` | `.claude/skills/build-push/skill.md` |
+| `canvas`, `design canvas`, `new visualization`, `generative art`, `particle effect` | `.claude/skills/canvas-designer/skill.md` |
 
 ## Dependencies
 
@@ -51,4 +63,5 @@ pip install -r site/requirements.txt    # markdown, jinja2
 - `make push` expects `../benjaminconnelly-infra` to exist (configurable via `INFRA_DIR`)
 - `make push` runs Ansible from the infra repo — needs AWS credentials and SSH access to EC2
 - The `output/` directory is wiped on each build
-- No dev server included — open `output/index.html` directly or use `python3 -m http.server -d site/output`
+- `make watch` requires `entr` (`apt install entr`) for file watching
+- Dev server port is configurable: `make dev DEV_PORT=9000`
