@@ -168,20 +168,20 @@ canvas { display: block; }
     const upperY = 0;
     const upperH = 280;
 
-    // Silver chassis body
+    // Silver chassis body — high contrast for ASCII readability
     const chassisGrad = offCtx.createLinearGradient(0, upperY, 0, upperY + upperH);
-    chassisGrad.addColorStop(0, '#c8c8c8');
-    chassisGrad.addColorStop(0.3, '#b8b8b8');
-    chassisGrad.addColorStop(0.7, '#a8a8a8');
-    chassisGrad.addColorStop(1, '#909090');
+    chassisGrad.addColorStop(0, '#e0e0e0');
+    chassisGrad.addColorStop(0.3, '#d0d0d0');
+    chassisGrad.addColorStop(0.7, '#c0c0c0');
+    chassisGrad.addColorStop(1, '#a0a0a0');
     offCtx.fillStyle = chassisGrad;
     offCtx.beginPath();
     roundRect(offCtx, 0, upperY, refW, upperH, 8);
     offCtx.fill();
 
-    // Chassis edge highlight
-    offCtx.strokeStyle = '#d8d8d8';
-    offCtx.lineWidth = 2;
+    // Chassis edge highlight — bright for strong border
+    offCtx.strokeStyle = '#f0f0f0';
+    offCtx.lineWidth = 3;
     offCtx.beginPath();
     offCtx.moveTo(4, upperY + upperH);
     offCtx.lineTo(4, upperY + 8);
@@ -189,8 +189,8 @@ canvas { display: block; }
     offCtx.stroke();
 
     // Shadow line at bottom of upper panel
-    offCtx.strokeStyle = '#707070';
-    offCtx.lineWidth = 2;
+    offCtx.strokeStyle = '#505050';
+    offCtx.lineWidth = 3;
     offCtx.beginPath();
     offCtx.moveTo(0, upperY + upperH - 1);
     offCtx.lineTo(refW, upperY + upperH - 1);
@@ -248,19 +248,19 @@ canvas { display: block; }
     for (let i = 0; i < knobLabels.length; i++) {
       const kx = knobStartX + (knobEndX - knobStartX) * i / (knobLabels.length - 1);
 
-      // Knob shadow
+      // Knob shadow — dark ring for contrast
       offCtx.beginPath();
-      offCtx.arc(kx, knobY + 3, knobR + 2, 0, Math.PI * 2);
-      offCtx.fillStyle = '#808080';
+      offCtx.arc(kx, knobY + 3, knobR + 4, 0, Math.PI * 2);
+      offCtx.fillStyle = '#404040';
       offCtx.fill();
 
       // Knob outer ring
       offCtx.beginPath();
       offCtx.arc(kx, knobY, knobR, 0, Math.PI * 2);
       const knobGrad = offCtx.createRadialGradient(kx - 6, knobY - 8, 2, kx, knobY, knobR);
-      knobGrad.addColorStop(0, '#eeeeee');
-      knobGrad.addColorStop(0.5, '#cccccc');
-      knobGrad.addColorStop(1, '#888888');
+      knobGrad.addColorStop(0, '#ffffff');
+      knobGrad.addColorStop(0.4, '#e0e0e0');
+      knobGrad.addColorStop(1, '#666666');
       offCtx.fillStyle = knobGrad;
       offCtx.fill();
 
@@ -269,8 +269,8 @@ canvas { display: block; }
       offCtx.arc(kx, knobY, knobR * 0.55, 0, Math.PI * 2);
       const capGrad = offCtx.createRadialGradient(kx - 3, knobY - 4, 1, kx, knobY, knobR * 0.55);
       capGrad.addColorStop(0, '#ffffff');
-      capGrad.addColorStop(0.6, '#dddddd');
-      capGrad.addColorStop(1, '#aaaaaa');
+      capGrad.addColorStop(0.5, '#f0f0f0');
+      capGrad.addColorStop(1, '#888888');
       offCtx.fillStyle = capGrad;
       offCtx.fill();
 
@@ -315,18 +315,24 @@ canvas { display: block; }
     offCtx.textAlign = 'center';
     offCtx.fillText('TEMPO', tempoX, tempoY - tempoR - 14);
 
+    // Tempo knob shadow
+    offCtx.beginPath();
+    offCtx.arc(tempoX, tempoY + 3, tempoR + 4, 0, Math.PI * 2);
+    offCtx.fillStyle = '#404040';
+    offCtx.fill();
+
     offCtx.beginPath();
     offCtx.arc(tempoX, tempoY, tempoR, 0, Math.PI * 2);
     const tempoGrad = offCtx.createRadialGradient(tempoX - 8, tempoY - 10, 2, tempoX, tempoY, tempoR);
-    tempoGrad.addColorStop(0, '#eeeeee');
-    tempoGrad.addColorStop(0.5, '#cccccc');
-    tempoGrad.addColorStop(1, '#888888');
+    tempoGrad.addColorStop(0, '#ffffff');
+    tempoGrad.addColorStop(0.4, '#e0e0e0');
+    tempoGrad.addColorStop(1, '#666666');
     offCtx.fillStyle = tempoGrad;
     offCtx.fill();
 
     offCtx.beginPath();
     offCtx.arc(tempoX, tempoY, tempoR * 0.55, 0, Math.PI * 2);
-    offCtx.fillStyle = '#dddddd';
+    offCtx.fillStyle = '#f0f0f0';
     offCtx.fill();
 
     offCtx.fillStyle = '#777';
@@ -343,14 +349,24 @@ canvas { display: block; }
     offCtx.textAlign = 'center';
     offCtx.fillText('VOLUME', volX, volY - tempoR - 14);
 
+    // Volume knob shadow
+    offCtx.beginPath();
+    offCtx.arc(volX, volY + 3, tempoR + 4, 0, Math.PI * 2);
+    offCtx.fillStyle = '#404040';
+    offCtx.fill();
+
     offCtx.beginPath();
     offCtx.arc(volX, volY, tempoR, 0, Math.PI * 2);
-    offCtx.fillStyle = tempoGrad;
+    const volGrad = offCtx.createRadialGradient(volX - 8, volY - 10, 2, volX, volY, tempoR);
+    volGrad.addColorStop(0, '#ffffff');
+    volGrad.addColorStop(0.4, '#e0e0e0');
+    volGrad.addColorStop(1, '#666666');
+    offCtx.fillStyle = volGrad;
     offCtx.fill();
 
     offCtx.beginPath();
     offCtx.arc(volX, volY, tempoR * 0.55, 0, Math.PI * 2);
-    offCtx.fillStyle = '#dddddd';
+    offCtx.fillStyle = '#f0f0f0';
     offCtx.fill();
 
     // --- TRACK / PATT.GROUP labels + small knobs (middle row) ---
@@ -411,15 +427,16 @@ canvas { display: block; }
     // TRACK label on right of mode
     offCtx.fillText('TRACK', 570, upperY + 165);
 
-    // --- TB-303 / Computer Controlled text (right of center) ---
-    offCtx.fillStyle = '#444444';
-    offCtx.font = 'bold 28px "Courier New", monospace';
-    offCtx.textAlign = 'left';
-    offCtx.fillText('TB-303', 640, upperY + 200);
-
-    offCtx.fillStyle = '#666666';
-    offCtx.font = '14px "Courier New", monospace';
-    offCtx.fillText('Computer Controlled', 640, upperY + 222);
+    // --- Right panel area (where TB-303 label would be) ---
+    // Brushed metal texture lines in the empty panel space
+    offCtx.strokeStyle = '#999999';
+    offCtx.lineWidth = 0.5;
+    for (let ly = upperY + 170; ly < upperY + 240; ly += 4) {
+      offCtx.beginPath();
+      offCtx.moveTo(640, ly);
+      offCtx.lineTo(900, ly);
+      offCtx.stroke();
+    }
 
     // --- POWER SW / jack area labels (right edge) ---
     offCtx.fillStyle = '#666';
@@ -427,9 +444,9 @@ canvas { display: block; }
     offCtx.textAlign = 'center';
     offCtx.fillText('POWER SW OFF', refW - 130, upperY + 250);
 
-    // Horizontal divider line before lower section
-    offCtx.strokeStyle = '#888888';
-    offCtx.lineWidth = 1.5;
+    // Horizontal divider line before lower section — strong separation
+    offCtx.strokeStyle = '#333333';
+    offCtx.lineWidth = 4;
     offCtx.beginPath();
     offCtx.moveTo(10, upperY + upperH + 2);
     offCtx.lineTo(refW - 10, upperY + upperH + 2);
@@ -439,10 +456,10 @@ canvas { display: block; }
     const lowerY = upperH + 4;
     const lowerH = refH - upperH - 4;
 
-    // Lower panel background (slightly darker silver)
+    // Lower panel background — darker to contrast with upper panel
     const lowerGrad = offCtx.createLinearGradient(0, lowerY, 0, lowerY + lowerH);
-    lowerGrad.addColorStop(0, '#b0b0b0');
-    lowerGrad.addColorStop(1, '#989898');
+    lowerGrad.addColorStop(0, '#909090');
+    lowerGrad.addColorStop(1, '#707070');
     offCtx.fillStyle = lowerGrad;
     offCtx.beginPath();
     roundRect(offCtx, 0, lowerY, refW, lowerH, 8);
@@ -523,29 +540,29 @@ canvas { display: block; }
       offCtx.fillText(noteNames[i], keyX + i * wkW + wkW / 2, keyY - 3);
     }
 
-    // White keys
+    // White keys — bright for strong contrast against dark lower panel
     for (let i = 0; i < numWhiteKeys; i++) {
       const kxx = keyX + i * wkW;
       const keyGrad = offCtx.createLinearGradient(kxx, keyY, kxx, keyY + keyH);
-      keyGrad.addColorStop(0, '#f0f0f0');
-      keyGrad.addColorStop(0.8, '#e0e0e0');
-      keyGrad.addColorStop(1, '#cccccc');
+      keyGrad.addColorStop(0, '#ffffff');
+      keyGrad.addColorStop(0.8, '#f0f0f0');
+      keyGrad.addColorStop(1, '#dddddd');
       offCtx.fillStyle = keyGrad;
       offCtx.fillRect(kxx + 1, keyY, wkW - 2, keyH);
-      offCtx.strokeStyle = '#aaaaaa';
-      offCtx.lineWidth = 0.5;
+      offCtx.strokeStyle = '#888888';
+      offCtx.lineWidth = 1;
       offCtx.strokeRect(kxx + 1, keyY, wkW - 2, keyH);
     }
 
-    // Black keys
+    // Black keys — very dark for contrast
     const blackPattern = [1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1];
     for (let i = 0; i < blackPattern.length; i++) {
       if (blackPattern[i]) {
         const bkx = keyX + (i + 0.65) * wkW;
         const bkGrad = offCtx.createLinearGradient(bkx, keyY, bkx, keyY + keyH * 0.6);
-        bkGrad.addColorStop(0, '#333333');
-        bkGrad.addColorStop(0.7, '#222222');
-        bkGrad.addColorStop(1, '#444444');
+        bkGrad.addColorStop(0, '#1a1a1a');
+        bkGrad.addColorStop(0.7, '#0a0a0a');
+        bkGrad.addColorStop(1, '#222222');
         offCtx.fillStyle = bkGrad;
         offCtx.fillRect(bkx, keyY, wkW * 0.55, keyH * 0.6);
       }
@@ -610,14 +627,14 @@ canvas { display: block; }
     for (let i = 0; i < 12; i++) {
       const sx = stepStartX + i * stepW;
 
-      // Top button (step indicator)
-      offCtx.fillStyle = i < 4 ? '#ff4444' : '#555555';
+      // Top button (step indicator) — brighter red/white
+      offCtx.fillStyle = i < 4 ? '#ff2222' : '#444444';
       offCtx.fillRect(sx, stepY, 40, 8);
 
-      // Number button below
-      offCtx.fillStyle = '#666666';
+      // Number button below — lighter for readability
+      offCtx.fillStyle = '#888888';
       offCtx.fillRect(sx, stepY + 14, 40, 18);
-      offCtx.fillStyle = '#ddd';
+      offCtx.fillStyle = '#fff';
       offCtx.font = '11px "Courier New", monospace';
       offCtx.textAlign = 'center';
       offCtx.fillText(String(i + 1), sx + 20, stepY + 27);
@@ -1027,12 +1044,19 @@ canvas { display: block; }
       [{strong: '?'}, ' \u2014 This help screen'],
       [{strong: 'Esc'}, ' \u2014 Close modal']
     ]);
-    h3(el, 'Mouse / Touch');
-    p(el, 'Move the cursor over the 303 to scramble nearby ASCII characters. They settle back on their own.');
+    h3(el, 'Modal Navigation');
+    ul(el, [
+      [{strong: 'j / \u2193'}, ' \u2014 Scroll down'],
+      [{strong: 'k / \u2191'}, ' \u2014 Scroll up'],
+      [{strong: 'g'}, ' \u2014 Jump to top'],
+      [{strong: 'G'}, ' \u2014 Jump to bottom']
+    ]);
   }
 
   // --- Keymap ---
-  const KEYMAP = {
+  var SCROLL_STEP = 60;
+
+  var KEYMAP = {
     'm': function() { openModal('TB-303 / Bass Line', historyContent); },
     '?': function() { openModal('Controls', controlsContent); },
     'Escape': closeModal,
@@ -1041,16 +1065,41 @@ canvas { display: block; }
   document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    const key = e.key;
-    const handler = KEYMAP[key] || KEYMAP[key.toLowerCase()];
-    if (handler) {
-      e.preventDefault();
-      if (modalOpen && key !== 'Escape') {
+    var key = e.key;
+
+    // Modal open: vim keys scroll, Escape closes
+    if (modalOpen) {
+      switch (e.code) {
+        case 'KeyJ': case 'ArrowDown':
+          e.preventDefault();
+          modalBodyEl.scrollBy(0, SCROLL_STEP);
+          return;
+        case 'KeyK': case 'ArrowUp':
+          e.preventDefault();
+          modalBodyEl.scrollBy(0, -SCROLL_STEP);
+          return;
+        case 'KeyG':
+          e.preventDefault();
+          modalBodyEl.scrollTo(0, e.shiftKey ? modalBodyEl.scrollHeight : 0);
+          return;
+        case 'Escape':
+          e.preventDefault();
+          closeModal();
+          return;
+      }
+      // Other keys while modal open: close and switch
+      var handler = KEYMAP[key] || KEYMAP[key.toLowerCase()];
+      if (handler && key !== 'Escape') {
         closeModal();
         setTimeout(function() { handler(); }, 50);
-      } else {
-        handler();
       }
+      return;
+    }
+
+    var handler = KEYMAP[key] || KEYMAP[key.toLowerCase()];
+    if (handler) {
+      e.preventDefault();
+      handler();
     }
   });
 })();
