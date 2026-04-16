@@ -12,3 +12,8 @@ __pycache__/
 
 # Playwright MCP session artifacts (screenshots, snapshots, console logs)
 .playwright-mcp/
+
+# Playwright test harness outputs + Node deps
+node_modules/
+test-results/
+playwright-report/

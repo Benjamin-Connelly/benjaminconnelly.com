@@ -1,4 +1,4 @@
-.PHONY: help build clean push serve dev watch open
+.PHONY: help build clean push serve dev watch open test test-setup
 
 INFRA_DIR ?= ../benjaminconnelly-infra
 ANSIBLE_DIR := $(INFRA_DIR)/ansible
@@ -45,3 +45,13 @@ open: build  ## Build, serve, and open in default browser
 
 clean:  ## Remove generated output
 	rm -rf site/output/
+
+test: build  ## Run cross-browser canvas smoke tests (chromium / firefox / webkit)
+	npx playwright test
+
+test-setup:  ## Install Playwright browsers + system deps (one-time, needs sudo for deps)
+	npm install
+	npx playwright install chromium firefox webkit
+	@echo ""
+	@echo "If any engine failed to launch, install system deps with:"
+	@echo "  sudo npx playwright install-deps"

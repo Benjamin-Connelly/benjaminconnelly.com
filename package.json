@@ -1,0 +1,16 @@
+{
+  "name": "benjaminconnelly.com",
+  "private": true,
+  "description": "Dev tooling for the static site. Production deploy does not need Node.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
