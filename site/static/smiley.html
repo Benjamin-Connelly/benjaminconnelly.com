@@ -224,8 +224,15 @@ canvas { display: block; }
     offscreen.height = h;
     offCtx.clearRect(0, 0, w, h);
 
-    const size = Math.min(w, h) * 0.78;
-    const cx = w / 2, cy = h / 2;
+    // Reserve the bottom strip for the help pill + photo-warn so the face
+    // doesn't get cut off by them as the viewport grows. 96 CSS-px is the
+    // pill (28) + warn (20) + spacing above/below (44 + 4). Scale by dpr
+    // because w/h here are physical pixels.
+    const bottomReserve = 96 * dpr;
+    const usableH = Math.max(h * 0.5, h - bottomReserve);
+    const size = Math.min(w, usableH) * 0.78;
+    const cx = w / 2;
+    const cy = usableH / 2;
     const r = size / 2;
 
     // Face disc — radial shading + irregular edge (low-frequency wobble).
