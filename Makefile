@@ -14,7 +14,7 @@ build:  ## Build the static site into site/output/
 	python3 site/build.py
 
 push: build  ## Build, sync beads, deploy via Ansible
-	bd sync
+	bd dolt push || echo "  (bd dolt push skipped or already up-to-date)"
 	ANSIBLE_CONFIG=$(abspath $(INFRA_DIR)/ansible.cfg) \
 	ansible-playbook -i $(ANSIBLE_DIR)/inventory/cloud.yml \
 		-e @$(ANSIBLE_DIR)/group_vars/all.yml \
