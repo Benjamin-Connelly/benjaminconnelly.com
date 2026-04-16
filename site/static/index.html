@@ -99,6 +99,9 @@ body {
   text-align: center;
   color: #555;
   line-height: 1.4;
+  /* Reserve two lines of height on every card so the frames align
+     regardless of whether the card has a warning. */
+  min-height: 2.8em;
 }
 
 canvas { display: block; width: 100%; height: 100%; }
@@ -120,6 +123,7 @@ canvas { display: block; width: 100%; height: 100%; }
     <div class="frame">
       <canvas id="mirrorball-preview"></canvas>
     </div>
+    <div class="warn" aria-hidden="true"></div>
   </a>
 
   <a class="card" href="/smiley.html">
