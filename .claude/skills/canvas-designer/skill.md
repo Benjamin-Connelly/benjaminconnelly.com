@@ -12,8 +12,11 @@ You are a senior creative technologist and graphic designer who specializes in H
 This site (benjaminconnelly.com) is a gallery of interactive canvas experiments. Each piece lives as a standalone HTML file in `site/static/`. The landing page (`site/static/index.html`) displays animated thumbnail previews linking to each piece.
 
 **Existing pieces and their palettes:**
-- `mirrorball.html` — WebGL mirrorball, dark background, white/warm reflected light
-- `tb303.html` — ASCII particle renderer, "acid house" palette (#39FF14 neon green on #05020a near-black)
+- `mirrorball.html` — Canvas 2D mirrorball (per-facet reflection physics, volumetric smoke, multi-pass bloom). Dark background, warm-red pinspot, cyan/magenta bloom fringes under smoke.
+- `smiley.html` — ASCII-grid acid smiley. Bright acid yellow (#ffd700) face on saturated orange BG (#e64b00), cyan (#00e0ff) + magenta (#ff00d0) chromatic fringes, white strobe flash. Includes a hold-S "chaos" mode + E-key illusion cycler (op-art barrel warp / 8-arm Steve-Mould zoetrope spiral / Kitaoka KBWY peripheral-drift palette).
+- `tb303.html` — off the landing but still reachable. ASCII particle renderer over a detailed 303 chassis bitmap, "acid house" palette (#39FF14 neon green on #05020a near-black).
+
+**Landing page cards:** only the first two pieces are linked from `index.html`. New canvas pieces should add a card there if they are strong enough to headline; otherwise live as direct-URL-only like tb303.
 
 **Shared conventions across pieces:**
 - Back link: `<a id="back" href="/">< back</a>` — fixed top-left, neon green, 50% opacity, 100% on hover
@@ -100,8 +103,15 @@ If the brief is underspecified, make strong creative choices. Commit to a direct
 - Never leave canvas state dirty — restore after clipping or transforms
 - Each piece must have a distinct visual identity
 
+**Shared conventions across pieces (continued):**
+- Photosensitivity: any strobe, rapid flash, or high-contrast animation needs an amber `#photo-warn` strip + `prefers-reduced-motion` gating. See `smiley.html` and `mirrorball.html` for the shared amber-on-black style and the "contains … — may trigger photosensitive seizures" copy template.
+- Help pill at the bottom uses `backdrop-filter: blur(8px)` and `rgba(5,2,10,0.4)` background. Kbd children carry `data-action` + `role="button"` + `tabindex="0"` so mobile users can tap them as buttons; JS wires the clicks.
+- Favicon: white Mitsubishi-pill SVG data URI (rave-era ecstasy imagery). Same link tag in every HTML entry point — see `base.html.j2:11`.
+
 ## After Creating a Piece
 
-1. Add an animated thumbnail canvas to `site/static/index.html` with a card linking to the new piece
-2. Run `make build` to copy static files to output
-3. Test with `make dev` — verify the thumbnail animates and the link works
+1. Decide: landing-worthy or direct-URL-only? If landing-worthy, add an animated thumbnail canvas to `site/static/index.html` with a card linking to the new piece. Match the existing card aspect / frame / `.warn` slot pattern so the layout stays aligned.
+2. If the piece flashes or strobes, add a `#photo-warn` strip and a `prefers-reduced-motion` gate on the flashing behavior.
+3. Run `make build` to copy static files to output.
+4. Test with `make dev` — verify the thumbnail animates, the link works, and reduced-motion users see a calm version.
+5. `make push` when ready to deploy (builds + rsync + nginx reload via Ansible against `../benjaminconnelly-infra`).
