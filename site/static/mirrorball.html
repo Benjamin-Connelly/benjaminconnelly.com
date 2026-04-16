@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mirrorball</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" crossorigin="anonymous">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='white' stroke='black' stroke-width='3'/><g fill='black'><polygon points='50,50 39,34 50,18 61,34'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(120 50 50)'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(240 50 50)'/></g></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" integrity="sha384-zh0CIslj+VczCZtlzBcjt5ppRcsAmDnRem7ESsYwWwg3m/OaJ2l4x7YBZl9Kxxib" crossorigin="anonymous">
 <style>
   body { margin: 0; background: #000; overflow: hidden; cursor: none; }
   #back {
@@ -321,10 +322,10 @@
       <ul>
         <li><strong>No per-frame allocation.</strong> Reusable <code>Float64Array</code> vectors (N, L, R, P) are written in-place — no objects created during rendering, no GC pressure.</li>
         <li><strong>Precomputed trig.</strong> Rotation matrices for axis tilt and wobble are computed once per frame, then applied to each facet with 8 multiplies and 4 adds.</li>
-        <li><strong>No <code>Math.pow</code>.</strong> Fresnel's fifth-power term uses chained multiplication; Henyey-Greenstein's \(d^{3/2}\) uses \(d \cdot \sqrt{d}\).</li>
+        <li><strong>Minimal <code>Math.pow</code>.</strong> Fresnel's fifth-power term uses chained multiplication; Henyey-Greenstein's \(d^{3/2}\) uses \(d \cdot \sqrt{d}\). The specular exponent \((\hat{L}\cdot\hat{n})^{1.7}\) does still call <code>Math.pow</code> because the non-integer exponent resists factoring — a rare hot-path concession.</li>
         <li><strong>Additive blending via Canvas compositing.</strong> <code>globalCompositeOperation = 'lighter'</code> gives physically correct light accumulation without shaders.</li>
         <li><strong>Elliptical dots via <code>ctx.ellipse()</code>.</strong> Slightly more expensive than <code>ctx.arc()</code>, but captures oblique-incidence distortion without extra geometry.</li>
-        <li><strong>Multi-resolution offscreen canvases.</strong> Haze particles at 1/4 res and bloom at 1/8 res keep GPU fill cost low while the bilinear upscale on <code>drawImage</code> provides free smoothing. <code>ctx.filter</code> blur runs on the GPU in Chrome/Edge/Firefox.</li>
+        <li><strong>Multi-resolution offscreen canvases.</strong> Haze particles at 1/4 res and bloom at 1/8 res keep fill cost low while the bilinear upscale on <code>drawImage</code> provides free smoothing. Critically, <code>ctx.filter</code> blurs are applied <em>on</em> these small canvases (via sibling staging buffers) before being upscaled — Firefox's Canvas2D filter is CPU-bound, so running it over ~1/16–1/64 the pixels is the difference between 60 fps and 15 fps.</li>
         <li><strong>Temporal persistence.</strong> The haze offscreen canvas fades with \(\alpha = 0.06\) per frame instead of clearing — fog accumulates and dissipates naturally without extra particle bookkeeping.</li>
       </ul>
       <p>The result: a physics-accurate mirror ball simulation that runs anywhere a browser does — desktop, tablet, phone — with zero dependencies and under 1100 lines of code.</p>
@@ -443,6 +444,15 @@ const BLOOM_SCALE = 0.125;
 const bloomCanvas = document.createElement('canvas');
 const bloomCtx = bloomCanvas.getContext('2d');
 
+// Sibling canvases for blur staging. Blur runs on these (small) instead of at
+// full W×H during the upscale draw. Firefox's Canvas2D filter is CPU-bound,
+// so this drops blur cost ~16-64×; the bilinear upscale on already-blurred
+// small pixels also masks Chrome's box-blur "cotton ball" artifact.
+const hazeBlurCanvas = document.createElement('canvas');
+const hazeBlurCtx = hazeBlurCanvas.getContext('2d');
+const bloomBlurCanvas = document.createElement('canvas');
+const bloomBlurCtx = bloomBlurCanvas.getContext('2d');
+
 function resize() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
   W = innerWidth; H = innerHeight;
@@ -454,9 +464,21 @@ function resize() {
   hazeCanvas.height = Math.ceil(H * HAZE_SCALE);
   bloomCanvas.width = Math.ceil(W * BLOOM_SCALE);
   bloomCanvas.height = Math.ceil(H * BLOOM_SCALE);
+  hazeBlurCanvas.width = hazeCanvas.width;
+  hazeBlurCanvas.height = hazeCanvas.height;
+  bloomBlurCanvas.width = bloomCanvas.width;
+  bloomBlurCanvas.height = bloomCanvas.height;
+  bloomBlurCtx.globalCompositeOperation = 'copy';
+  hazeBlurCtx.globalCompositeOperation = 'copy';
 }
 resize();
-addEventListener('resize', resize);
+// Debounce resize — rebuilding 5 canvases on every tick during a window drag
+// is wasteful and briefly drops frames. 80ms trailing catches the final size.
+let _resizeTimer = 0;
+addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(resize, 80);
+});
 
 // ── Facet Generation ─────────────────────────────────────────────────────────
 // Spherical coords, brick-lay stagger, proportional columns per row
@@ -476,11 +498,16 @@ for (let row = 0; row < FACET_ROWS; row++) {
   }
 }
 
+// Honor the user's OS-level reduced-motion preference: start paused so the
+// scene reads as a static pretty image. User can press Space to resume.
+const PREFERS_REDUCED_MOTION = typeof matchMedia === 'function'
+  && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
   targetRpm: ROTATION_RPM,
   omega: 0,             // actual angular velocity (rad/s), starts at rest
-  paused: false,
+  paused: PREFERS_REDUCED_MOTION,
   rotation: 0,
   viewMode: 'room', // 'panoramic' or 'room'
   smokeDensity: 0,    // current fog level (0–1), decays naturally
@@ -978,8 +1005,11 @@ function frame(time) {
       const haloMinor = coreMinor * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
       const haloMajor = coreMajor * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
 
-      // Outer halo (radial gradient clipped to ellipse path)
-      if (haloMinor > 0.5) {
+      // Outer halo (radial gradient clipped to ellipse path). Gate by brightness
+      // as well as geometry — dim halos are invisible but still cost a
+      // createRadialGradient allocation, which is measurable GC pressure for
+      // ~650 facets/frame (worst on Firefox).
+      if (brightness > 0.1 && haloMinor > 0.5) {
         const haloA = Math.min(1, 0.2 * brightness);
         const maxR = Math.max(haloMajor, haloMinor);
         const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, maxR);
@@ -1015,8 +1045,9 @@ function frame(time) {
       const coreR = Math.max(0.5, baseR * (0.3 + 0.7 * brightness));
       const haloR = coreR * (2.5 + 2.5 * (1 - DOT_SHARPNESS));
 
-      // Outer halo
-      if (haloR > 0.5) {
+      // Outer halo — gated by brightness as well as radius to skip invisible
+      // gradient allocations (see room-mode branch above for rationale).
+      if (brightness > 0.1 && haloR > 0.5) {
         const haloA = Math.min(1, 0.2 * brightness);
         const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
         hg.addColorStop(0, `rgba(${cr|0},${cg|0},${cb|0},${haloA.toFixed(3)})`);
@@ -1091,17 +1122,23 @@ function frame(time) {
     hazeCtx.globalCompositeOperation = 'source-over';
   }
 
-  // Composite blurred haze back onto main canvas (always — handles fade-out tail)
+  // Composite blurred haze back onto main canvas (always — handles fade-out tail).
+  // Blur runs on the 1/4-res hazeBlurCanvas, so the filter operates on ~1/16
+  // the pixels of the full canvas. Bilinear upscale below smooths the discrete
+  // particle circles that Chrome's fast box-blur leaves visible at full res.
+  hazeBlurCtx.filter = `blur(${Math.max(1, Math.round(4 * scale))}px)`;
+  hazeBlurCtx.drawImage(hazeCanvas, 0, 0);
+  hazeBlurCtx.filter = 'none';
   ctx.save();
-  ctx.filter = `blur(${Math.round(16 * scale)}px)`;
   ctx.globalAlpha = 0.75;
   ctx.globalCompositeOperation = 'screen';
-  ctx.drawImage(hazeCanvas, 0, 0, W, H);
+  ctx.drawImage(hazeBlurCanvas, 0, 0, W, H);
   ctx.restore();
 
   // ── Layer 7: Multi-pass bloom — spectral light bleed ─────────────────────
   // Capture the current scene at 1/8 res, darken to extract only bright pixels,
   // then composite back at 3 blur radii for a hot core + mid halo + wide scatter.
+  // Each blur runs on the 1/8-res bloomBlurCanvas (~1/64 pixel cost vs full res).
   const bW = bloomCanvas.width, bH = bloomCanvas.height;
   bloomCtx.clearRect(0, 0, bW, bH);
   bloomCtx.drawImage(canvas, 0, 0, bW, bH);
@@ -1111,19 +1148,26 @@ function frame(time) {
   bloomCtx.fillRect(0, 0, bW, bH);
   bloomCtx.globalCompositeOperation = 'source-over';
 
-  ctx.globalCompositeOperation = 'screen';
+  // Blur radii are in small-canvas pixels (1/8 of full res), so the upscaled
+  // effect after drawImage is ~8× larger. Pass 1 has no explicit blur — the
+  // bilinear upscale alone gives the tight halo that a 2px full-res blur did.
   const bloomPasses = [
-    { blur: Math.round(2 * scale), alpha: 0.5 },
-    { blur: Math.round(8 * scale), alpha: 0.25 },
-    { blur: Math.round(20 * scale), alpha: 0.12 },
+    { blur: 0,                                    alpha: 0.5  },
+    { blur: Math.max(1, Math.round(scale)),       alpha: 0.25 },
+    { blur: Math.max(1, Math.round(2.5 * scale)), alpha: 0.12 },
   ];
+  ctx.globalCompositeOperation = 'screen';
   for (let i = 0; i < bloomPasses.length; i++) {
     const bp = bloomPasses[i];
-    ctx.save();
-    ctx.filter = `blur(${bp.blur}px)`;
+    let src = bloomCanvas;
+    if (bp.blur > 0) {
+      bloomBlurCtx.filter = `blur(${bp.blur}px)`;
+      bloomBlurCtx.drawImage(bloomCanvas, 0, 0);
+      bloomBlurCtx.filter = 'none';
+      src = bloomBlurCanvas;
+    }
     ctx.globalAlpha = bp.alpha;
-    ctx.drawImage(bloomCanvas, 0, 0, W, H);
-    ctx.restore();
+    ctx.drawImage(src, 0, 0, W, H);
   }
 
   // Reset compositing
@@ -1132,8 +1176,8 @@ function frame(time) {
 }
 requestAnimationFrame(frame);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" integrity="sha384-Rma6DA2IPUwhNxmrB/7S3Tno0YY7sFu9WSYMCuulLhIqYSGZ2gKCJWIqhBWqMQfh" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"></script>
 <script>
 renderMathInElement(document.querySelector('.modal-body'), {
   delimiters: [
