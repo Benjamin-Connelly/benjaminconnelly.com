@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>benjaminconnelly.com</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='white' stroke='black' stroke-width='3'/><g fill='black'><polygon points='50,50 39,34 50,18 61,34'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(120 50 50)'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(240 50 50)'/></g></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
@@ -111,9 +112,9 @@ canvas { display: block; width: 100%; height: 100%; }
     </div>
   </a>
 
-  <a class="card" href="/tb303.html">
+  <a class="card" href="/smiley.html">
     <div class="frame">
-      <canvas id="tb303-preview"></canvas>
+      <canvas id="smiley-preview"></canvas>
     </div>
   </a>
 </div>
@@ -210,168 +211,76 @@ canvas { display: block; width: 100%; height: 100%; }
     }
   }
 
-  // --- TB-303 preview: draw 303 shape, sample as ASCII ---
-  const tbCanvas = document.getElementById('tb303-preview');
-  const tbCtx = tbCanvas.getContext('2d');
-  const tbOff = document.createElement('canvas');
-  const tbOffCtx = tbOff.getContext('2d');
+  // --- Smiley preview: draw ☻ shape, sample as ASCII ---
+  const smCanvas = document.getElementById('smiley-preview');
+  const smCtx = smCanvas.getContext('2d');
+  const smOff = document.createElement('canvas');
+  const smOffCtx = smOff.getContext('2d');
 
-  const TB_BG = '#05020a';
-  const TB_GREEN = '#39FF14';
-  const TB_MAGENTA = '#FF00FF';
-  const TB_RAMP = [' ', '.', ':', '-', '~', '+', '*', '#', '@', '%'];
+  const SM_BG = '#05020a';
+  const SM_YELLOW = '#ffd700';
+  const SM_RAMP = [' ', '.', ':', '-', '~', '+', '*', '#', '@', '%'];
 
-  let tbCells = [];
-  let tbImageData = null;
+  let smCells = [];
+  let smImageData = null;
+  let smEyeGeo = null;  // { eyeLX, eyeRX, eyeY, cellSize } for wink overlay
 
-  // Draw a simplified 303 onto the offscreen canvas
-  function draw303Preview(w, h) {
-    tbOff.width = w;
-    tbOff.height = h;
-    tbOffCtx.clearRect(0, 0, w, h);
+  function drawSmileyOff(w, h) {
+    smOff.width = w;
+    smOff.height = h;
+    smOffCtx.clearRect(0, 0, w, h);
 
-    // Fill card width, center vertically
-    const refW = 400;
-    const refH = 210;
-    const scale = (w / refW) * 0.95;
-    const ox = (w - refW * scale) / 2;
-    const oy = (h - refH * scale) / 2;
+    const size = Math.min(w, h) * 0.82;
+    const cx = w / 2, cy = h / 2;
+    const r = size / 2;
 
-    tbOffCtx.save();
-    tbOffCtx.translate(ox, oy);
-    tbOffCtx.scale(scale, scale);
+    // Yellow face disc (sampled by brightness only — color is irrelevant here)
+    const grd = smOffCtx.createRadialGradient(cx - r * 0.2, cy - r * 0.3, r * 0.1, cx, cy, r);
+    grd.addColorStop(0, '#ffffff');
+    grd.addColorStop(0.85, '#e0e0e0');
+    grd.addColorStop(1, '#a0a0a0');
+    smOffCtx.fillStyle = grd;
+    smOffCtx.beginPath();
+    smOffCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    smOffCtx.fill();
 
-    // Upper chassis — bright for ASCII readability
-    const upperH = 115;
-    const upperGrad = tbOffCtx.createLinearGradient(0, 0, 0, upperH);
-    upperGrad.addColorStop(0, '#f0f0f0');
-    upperGrad.addColorStop(1, '#b0b0b0');
-    tbOffCtx.fillStyle = upperGrad;
-    tbOffCtx.fillRect(0, 0, refW, upperH);
+    // Eyes (black voids)
+    const eDX = r * 0.33;
+    const eY  = cy - r * 0.18;
+    const eR  = r * 0.11;
+    smOffCtx.fillStyle = '#000';
+    smOffCtx.beginPath();
+    smOffCtx.arc(cx - eDX, eY, eR, 0, Math.PI * 2);
+    smOffCtx.arc(cx + eDX, eY, eR, 0, Math.PI * 2);
+    smOffCtx.fill();
 
-    // Bright top edge
-    tbOffCtx.strokeStyle = '#f0f0f0';
-    tbOffCtx.lineWidth = 2;
-    tbOffCtx.strokeRect(1, 1, refW - 2, upperH - 2);
+    // Mouth arc
+    smOffCtx.strokeStyle = '#000';
+    smOffCtx.lineWidth = r * 0.10;
+    smOffCtx.lineCap = 'round';
+    smOffCtx.beginPath();
+    smOffCtx.arc(cx, cy + r * 0.07, r * 0.52, 0.18 * Math.PI, 0.82 * Math.PI, false);
+    smOffCtx.stroke();
 
-    // 6 knobs row
-    const knobY = 42;
-    const knobR = 14;
-    for (let i = 0; i < 6; i++) {
-      const kx = 100 + i * 45;
-      // Shadow
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(kx, knobY + 2, knobR + 2, 0, Math.PI * 2);
-      tbOffCtx.fillStyle = '#404040';
-      tbOffCtx.fill();
-      // Outer
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(kx, knobY, knobR, 0, Math.PI * 2);
-      const kg = tbOffCtx.createRadialGradient(kx - 3, knobY - 4, 1, kx, knobY, knobR);
-      kg.addColorStop(0, '#ffffff');
-      kg.addColorStop(1, '#666666');
-      tbOffCtx.fillStyle = kg;
-      tbOffCtx.fill();
-      // Cap
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(kx, knobY, knobR * 0.5, 0, Math.PI * 2);
-      tbOffCtx.fillStyle = '#f0f0f0';
-      tbOffCtx.fill();
-    }
-
-    // Tempo knob (left, big)
-    const bigR = 18;
-    for (const bx of [38, refW - 38]) {
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(bx, 78, bigR + 2, 0, Math.PI * 2);
-      tbOffCtx.fillStyle = '#404040';
-      tbOffCtx.fill();
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(bx, 76, bigR, 0, Math.PI * 2);
-      const bg = tbOffCtx.createRadialGradient(bx - 4, 72, 1, bx, 76, bigR);
-      bg.addColorStop(0, '#ffffff');
-      bg.addColorStop(1, '#666666');
-      tbOffCtx.fillStyle = bg;
-      tbOffCtx.fill();
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(bx, 76, bigR * 0.5, 0, Math.PI * 2);
-      tbOffCtx.fillStyle = '#f0f0f0';
-      tbOffCtx.fill();
-    }
-
-    // Divider
-    tbOffCtx.fillStyle = '#333333';
-    tbOffCtx.fillRect(0, upperH, refW, 3);
-
-    // Lower chassis
-    const lowerY = upperH + 3;
-    const lowerH = refH - lowerY;
-    const lowerGrad = tbOffCtx.createLinearGradient(0, lowerY, 0, refH);
-    lowerGrad.addColorStop(0, '#909090');
-    lowerGrad.addColorStop(1, '#707070');
-    tbOffCtx.fillStyle = lowerGrad;
-    tbOffCtx.fillRect(0, lowerY, refW, lowerH);
-
-    // Keyboard
-    const keyX = 50;
-    const keyY = lowerY + 8;
-    const keyW = 260;
-    const keyH = 40;
-    const numWhite = 13;
-    const wkW = keyW / numWhite;
-    // White keys
-    for (let i = 0; i < numWhite; i++) {
-      tbOffCtx.fillStyle = '#f8f8f8';
-      tbOffCtx.fillRect(keyX + i * wkW + 0.5, keyY, wkW - 1, keyH);
-      tbOffCtx.strokeStyle = '#999';
-      tbOffCtx.lineWidth = 0.5;
-      tbOffCtx.strokeRect(keyX + i * wkW + 0.5, keyY, wkW - 1, keyH);
-    }
-    // Black keys
-    const bk = [1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1];
-    for (let i = 0; i < bk.length; i++) {
-      if (bk[i]) {
-        tbOffCtx.fillStyle = '#111111';
-        tbOffCtx.fillRect(keyX + (i + 0.6) * wkW, keyY, wkW * 0.55, keyH * 0.6);
-      }
-    }
-
-    // Step buttons row
-    const stepY = lowerY + 58;
-    const stepStartX = 55;
-    const stepW = 22;
-    for (let i = 0; i < 12; i++) {
-      // LED
-      tbOffCtx.beginPath();
-      tbOffCtx.arc(stepStartX + i * stepW + 8, stepY - 6, 2, 0, Math.PI * 2);
-      tbOffCtx.fillStyle = '#ff3333';
-      tbOffCtx.fill();
-      // Button
-      tbOffCtx.fillStyle = '#888888';
-      tbOffCtx.fillRect(stepStartX + i * stepW, stepY, 16, 10);
-    }
-
-    tbOffCtx.restore();
+    return { cx, cy, r, eDX, eY };
   }
 
-  function initTb303() {
+  function initSmileyPreview() {
     const dpr = window.devicePixelRatio || 1;
-    const rect = tbCanvas.getBoundingClientRect();
-    tbCanvas.width = rect.width * dpr;
-    tbCanvas.height = rect.height * dpr;
-    tbCtx.scale(dpr, dpr);
+    const rect = smCanvas.getBoundingClientRect();
+    smCanvas.width = rect.width * dpr;
+    smCanvas.height = rect.height * dpr;
+    smCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const size = { w: rect.width, h: rect.height };
 
-    // Draw 303 shape to offscreen canvas
-    draw303Preview(rect.width * dpr, rect.height * dpr);
-    const raw = tbOffCtx.getImageData(0, 0, rect.width * dpr, rect.height * dpr);
-    tbImageData = raw.data;
+    const geo = drawSmileyOff(rect.width * dpr, rect.height * dpr);
+    const raw = smOffCtx.getImageData(0, 0, rect.width * dpr, rect.height * dpr);
+    smImageData = raw.data;
 
-    // Build ASCII grid by sampling brightness
-    tbCells = [];
     const cellSize = Math.max(4, Math.round(5 * (size.w / 280)));
     const cols = Math.ceil(size.w / cellSize);
     const rows = Math.ceil(size.h / cellSize);
+    smCells = [];
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -379,117 +288,97 @@ canvas { display: block; width: 100%; height: 100%; }
         const homeY = r * cellSize + cellSize / 2;
         const sx = Math.round(homeX * dpr);
         const sy = Math.round(homeY * dpr);
-        if (sx < 0 || sx >= rect.width * dpr || sy < 0 || sy >= rect.height * dpr) continue;
-        const idx = (sy * rect.width * dpr + sx) * 4;
-        const brightness = (0.299 * tbImageData[idx] + 0.587 * tbImageData[idx + 1] + 0.114 * tbImageData[idx + 2]) / 255;
-        if (brightness < 0.02) continue;
-        const charIdx = Math.min(TB_RAMP.length - 1, Math.floor(brightness * TB_RAMP.length));
-        tbCells.push({
+        if (sx < 0 || sx >= smCanvas.width || sy < 0 || sy >= smCanvas.height) continue;
+        // Use the INTEGER canvas pixel width for stride — `rect.width * dpr`
+        // is fractional on non-integer DPRs (e.g. 1.04 in Playwright) and
+        // produces off-by-N sampling that bleeds outside the disc.
+        const idx = (sy * smCanvas.width + sx) * 4;
+        const brightness = (0.299 * smImageData[idx] + 0.587 * smImageData[idx + 1] + 0.114 * smImageData[idx + 2]) / 255;
+        if (brightness < 0.05) continue;
+        const charIdx = Math.min(SM_RAMP.length - 1, Math.floor(brightness * SM_RAMP.length));
+        smCells.push({
           x: homeX, y: homeY,
           brightness: brightness,
-          restChar: TB_RAMP[charIdx],
-          char: TB_RAMP[charIdx],
+          restChar: SM_RAMP[charIdx],
+          char: SM_RAMP[charIdx],
           phase: Math.random() * Math.PI * 2,
           cellSize: cellSize,
-          // Flag step button region for sequencer animation
-          isStep: homeY / size.h > 0.75 && homeX / size.w > 0.1 && homeX / size.w < 0.85,
-          stepCol: c
         });
       }
     }
 
+    smEyeGeo = {
+      eyeLX: (geo.cx - geo.eDX) / dpr,
+      eyeRX: (geo.cx + geo.eDX) / dpr,
+      eyeY:  geo.eY / dpr,
+      cellSize,
+    };
+
     return size;
   }
 
-  let tbSize = initTb303();
+  let smSize = initSmileyPreview();
 
-  const STEP_MS = 428;
-  const NUM_STEPS = 12;
-  const ACCENTS = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1];
+  const PREVIEW_WINK_PERIOD_S = 5.0;
+  const PREVIEW_WINK_DURATION_S = 0.16;
 
-  function drawTb303(time) {
-    const w = tbSize.w, h = tbSize.h;
-    const currentStep = Math.floor(time / STEP_MS) % NUM_STEPS;
-    const stepPhase = (time % STEP_MS) / STEP_MS;
-    const breath = 0.85 + 0.15 * Math.sin(time * 0.0015);
+  function drawSmileyPreview(time) {
+    const w = smSize.w, h = smSize.h;
+    const breath = 0.88 + 0.12 * Math.sin(time * 0.0012);
 
-    tbCtx.fillStyle = TB_BG;
-    tbCtx.fillRect(0, 0, w, h);
+    smCtx.fillStyle = SM_BG;
+    smCtx.fillRect(0, 0, w, h);
 
-    const fontSize = tbCells.length > 0 ? tbCells[0].cellSize : 5;
-    tbCtx.font = `${fontSize}px "Courier New", monospace`;
-    tbCtx.textAlign = 'center';
-    tbCtx.textBaseline = 'middle';
-    tbCtx.shadowBlur = 0;
+    const fontSize = smCells.length > 0 ? smCells[0].cellSize : 5;
+    smCtx.font = `${fontSize}px "Courier New", monospace`;
+    smCtx.textAlign = 'center';
+    smCtx.textBaseline = 'middle';
 
-    // Find step region bounds for mapping step indices
-    let stepMinX = Infinity, stepMaxX = -Infinity;
-    for (let i = 0; i < tbCells.length; i++) {
-      if (tbCells[i].isStep) {
-        if (tbCells[i].x < stepMinX) stepMinX = tbCells[i].x;
-        if (tbCells[i].x > stepMaxX) stepMaxX = tbCells[i].x;
-      }
-    }
-    const stepRange = stepMaxX - stepMinX;
-
-    for (let i = 0; i < tbCells.length; i++) {
-      const cell = tbCells[i];
-      let alpha = cell.brightness * breath;
-      let color = TB_GREEN;
-      let char = cell.char;
-
-      // Twinkle
-      if (Math.random() < 0.003 && cell.brightness > 0.05) {
-        const baseIdx = Math.floor(cell.brightness * TB_RAMP.length);
+    for (let i = 0; i < smCells.length; i++) {
+      const cell = smCells[i];
+      // Ambient twinkle — advance char one step, then settle
+      if (Math.random() < 0.003 && cell.brightness > 0.1) {
+        const baseIdx = Math.floor(cell.brightness * SM_RAMP.length);
         const shift = Math.random() < 0.5 ? -1 : 1;
-        cell.char = TB_RAMP[Math.max(1, Math.min(TB_RAMP.length - 1, baseIdx + shift))];
-        char = cell.char;
+        cell.char = SM_RAMP[Math.max(1, Math.min(SM_RAMP.length - 1, baseIdx + shift))];
+      } else if (Math.random() < 0.08) {
+        cell.char = cell.restChar;
       }
 
-      // Animate step region with sequencer
-      if (cell.isStep && stepRange > 0) {
-        const stepIdx = Math.floor(((cell.x - stepMinX) / stepRange) * NUM_STEPS);
-        if (stepIdx >= 0 && stepIdx < NUM_STEPS) {
-          const isActive = stepIdx === currentStep;
-          const wasRecent = stepIdx === (currentStep - 1 + NUM_STEPS) % NUM_STEPS;
-          if (isActive) {
-            color = ACCENTS[stepIdx] ? TB_MAGENTA : TB_GREEN;
-            alpha = 1;
-            char = '#';
-            tbCtx.shadowBlur = 4;
-            tbCtx.shadowColor = color;
-          } else if (wasRecent) {
-            alpha = cell.brightness * 0.6 * (1 - stepPhase);
+      smCtx.globalAlpha = cell.brightness * breath;
+      smCtx.fillStyle = SM_YELLOW;
+      smCtx.fillText(cell.char, cell.x, cell.y);
+    }
+    smCtx.globalAlpha = 1;
+
+    // Wink: bar of '#' chars across each eye hole, periodic
+    if (smEyeGeo) {
+      const winkPhase = (time / 1000) % PREVIEW_WINK_PERIOD_S;
+      if (winkPhase < PREVIEW_WINK_DURATION_S) {
+        smCtx.fillStyle = SM_YELLOW;
+        for (const ex of [smEyeGeo.eyeLX, smEyeGeo.eyeRX]) {
+          for (let k = -2; k <= 2; k++) {
+            smCtx.fillText('#', ex + k * smEyeGeo.cellSize, smEyeGeo.eyeY);
           }
         }
       }
-
-      tbCtx.globalAlpha = alpha;
-      tbCtx.fillStyle = color;
-      tbCtx.fillText(char, cell.x, cell.y);
-      if (tbCtx.shadowBlur > 0) tbCtx.shadowBlur = 0;
-    }
-
-    tbCtx.globalAlpha = 1;
-
-    // Scanline effect
-    tbCtx.fillStyle = 'rgba(0,0,0,0.06)';
-    for (let y = 0; y < h; y += 3) {
-      tbCtx.fillRect(0, y, w, 1);
     }
   }
 
   // --- Resize ---
   window.addEventListener('resize', function() {
     mbSize = initMirrorball();
-    tbSize = initTb303();
+    smSize = initSmileyPreview();
   });
 
   // --- Animate ---
+  // Skip draws when the tab is hidden — RAF already throttles to ~1Hz in
+  // background tabs, but explicit early-return avoids the canvas state churn.
   function animate(time) {
     requestAnimationFrame(animate);
+    if (document.hidden) return;
     drawMirrorball(time);
-    drawTb303(time);
+    drawSmileyPreview(time);
   }
 
   requestAnimationFrame(animate);

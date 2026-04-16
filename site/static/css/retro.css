@@ -520,6 +520,14 @@ img {
     background: #c0c0c0;
 }
 
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .marquee-text {
+        animation: none;
+        padding-left: 0;
+    }
+}
+
 /* --- Responsive (but retro) --- */
 
 @media (max-width: 840px) {

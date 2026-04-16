@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acid Smiley</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='white' stroke='black' stroke-width='3'/><g fill='black'><polygon points='50,50 39,34 50,18 61,34'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(120 50 50)'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(240 50 50)'/></g></svg>">
+<style>
+:root {
+  --bg: #05020a;
+  --primary: #ffd700;      /* acid yellow */
+  --pop: #ff2dd4;          /* strobe flash */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); cursor: crosshair; }
+canvas { display: block; }
+#back {
+  position: fixed; top: 16px; left: 16px; z-index: 10;
+  font-family: 'Courier New', monospace; font-size: 14px;
+  color: var(--primary); text-decoration: none; opacity: 0.5;
+  transition: opacity 0.2s;
+}
+#back:hover { opacity: 1; }
+
+#help-pill {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(5,2,10,0.7); border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 20px; padding: 6px 18px; z-index: 10;
+  font: 12px 'Courier New', monospace; color: rgba(255,215,0,0.6);
+  pointer-events: none; white-space: nowrap;
+  transition: opacity 0.3s;
+}
+@supports (backdrop-filter: blur(8px)) {
+  #help-pill { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(5,2,10,0.4); }
+}
+#help-pill kbd {
+  font: inherit; background: rgba(255,215,0,0.14);
+  border-radius: 3px; padding: 1px 5px; margin: 0 2px;
+}
+#help-pill .sep { margin: 0 6px; opacity: 0.3; }
+
+#modal-backdrop {
+  position: fixed; inset: 0; background: rgba(5,2,10,0.9);
+  z-index: 100; display: none; align-items: center; justify-content: center;
+  cursor: auto;
+}
+@supports (backdrop-filter: blur(6px)) {
+  #modal-backdrop { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+}
+#modal-backdrop.open { display: flex; }
+
+#modal-panel {
+  background: rgba(8,6,12,0.95); border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 12px; max-width: 720px; width: 92%; max-height: 85vh;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7); display: flex; flex-direction: column;
+  position: relative;
+}
+#modal-panel .close {
+  position: absolute; top: 12px; right: 16px; background: none; border: none;
+  color: rgba(255,215,0,0.5); font: 20px 'Courier New', monospace; cursor: pointer;
+  padding: 4px 8px; line-height: 1; z-index: 1;
+}
+#modal-panel .close:hover { color: var(--primary); }
+
+#modal-panel h2 {
+  font: 600 20px/1.3 'Courier New', monospace;
+  color: var(--primary); margin: 0; padding: 28px 32px 0;
+  text-transform: uppercase; letter-spacing: 2px;
+}
+
+.modal-body {
+  padding: 20px 32px 28px; overflow-y: auto; max-height: 70vh;
+  font: 14px/1.8 'Courier New', monospace;
+  color: rgba(255,215,0,0.8);
+}
+.modal-body h3 {
+  color: var(--primary); font-size: 14px; margin: 28px 0 8px;
+  text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255,215,0,0.2); padding-bottom: 6px;
+}
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body p { margin: 0 0 14px; }
+.modal-body em { color: rgba(255,215,0,0.55); font-style: italic; }
+.modal-body strong { color: var(--primary); font-weight: normal; }
+.modal-body blockquote {
+  border-left: 2px solid rgba(255,215,0,0.35); margin: 12px 0; padding: 4px 0 4px 16px;
+  color: rgba(255,215,0,0.6); font-style: italic;
+}
+.modal-body ul { margin: 8px 0 14px; padding-left: 20px; }
+.modal-body li { margin: 4px 0; }
+.modal-body li::marker { color: rgba(255,215,0,0.35); }
+
+.modal-body::-webkit-scrollbar { width: 5px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<a id="back" href="/">&lt; back</a>
+<canvas id="c"></canvas>
+
+<div id="help-pill">
+  <kbd>S</kbd> strobe<span class="sep">·</span><kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
+</div>
+
+<div id="modal-backdrop">
+  <div id="modal-panel">
+    <button class="close" aria-label="Close">&times;</button>
+    <h2 id="modal-title"></h2>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const offscreen = document.createElement('canvas');
+  const offCtx = offscreen.getContext('2d');
+
+  const rootStyles = getComputedStyle(document.documentElement);
+  const BG = rootStyles.getPropertyValue('--bg').trim();
+  const PRIMARY = rootStyles.getPropertyValue('--primary').trim();
+  const POP = rootStyles.getPropertyValue('--pop').trim();
+
+  const CHAR_RAMP = [' ', '.', ':', '-', '~', '+', '*', '#', '@', '%'];
+  const SCRAMBLE_RADIUS = 70;
+  const SCRAMBLE_RADIUS_SQ = SCRAMBLE_RADIUS * SCRAMBLE_RADIUS;
+  const PUSH_ACCEL = 520;       // px/s² applied radially when mouse is close
+  const RETURN_K = 18;          // spring pulling back to home (1/s²)
+  const RETURN_DAMP = 7.5;      // velocity decay (1/s)
+  const BRIGHTNESS_FLOOR = 0.05;
+
+  const WINK_PERIOD_S = 8.0;
+  const WINK_DURATION_S = 0.18;
+  const STROBE_MS = 220;
+
+  const PREFERS_REDUCED_MOTION = typeof matchMedia === 'function'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let particles = [];
+  let cellSize = 9;
+  let mouseX = 0, mouseY = 0, mouseActive = false;
+  let dpr = 1, W, H;
+  let lastTime = 0;
+  let strobeUntil = 0;
+
+  // Eye-region geometry, recomputed each resize. Used for the wink overlay.
+  let leftEyeX = 0, rightEyeX = 0, eyeY = 0;
+
+  let imageData = null;
+
+  // ─ Draw the ☻ silhouette at full offscreen resolution ────────────────────
+  function drawSmiley(w, h) {
+    offscreen.width = w;
+    offscreen.height = h;
+    offCtx.clearRect(0, 0, w, h);
+
+    const size = Math.min(w, h) * 0.78;
+    const cx = w / 2, cy = h / 2;
+    const r = size / 2;
+
+    // Yellow face disc (white in the sampled mask — only brightness matters)
+    const grd = offCtx.createRadialGradient(cx - r * 0.2, cy - r * 0.3, r * 0.1, cx, cy, r);
+    grd.addColorStop(0, '#ffffff');
+    grd.addColorStop(0.85, '#e0e0e0');
+    grd.addColorStop(1, '#a0a0a0');
+    offCtx.fillStyle = grd;
+    offCtx.beginPath();
+    offCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    offCtx.fill();
+
+    // Eyes (black voids → no particles)
+    offCtx.fillStyle = '#000';
+    const eDX = r * 0.33;
+    const eY  = cy - r * 0.18;
+    const eR  = r * 0.10;
+    offCtx.beginPath();
+    offCtx.arc(cx - eDX, eY, eR, 0, Math.PI * 2);
+    offCtx.arc(cx + eDX, eY, eR, 0, Math.PI * 2);
+    offCtx.fill();
+
+    // Mouth — thick arc
+    offCtx.strokeStyle = '#000';
+    offCtx.lineWidth = r * 0.10;
+    offCtx.lineCap = 'round';
+    offCtx.beginPath();
+    offCtx.arc(cx, cy + r * 0.07, r * 0.52, 0.18 * Math.PI, 0.82 * Math.PI, false);
+    offCtx.stroke();
+
+    return { cx, cy, r, eDX, eY };
+  }
+
+  function sampleBrightness(px, py) {
+    if (!imageData) return 0;
+    // Use the INTEGER canvas pixel width for stride; W * dpr is fractional
+    // on non-integer DPR and produces drifting off-by-N sampling.
+    const stride = canvas.width;
+    if (px < 0 || px >= stride || py < 0 || py >= canvas.height) return 0;
+    const idx = (py * stride + px) * 4;
+    return (0.299 * imageData[idx] + 0.587 * imageData[idx + 1] + 0.114 * imageData[idx + 2]) / 255;
+  }
+
+  function charFor(b) {
+    return CHAR_RAMP[Math.min(CHAR_RAMP.length - 1, Math.floor(b * CHAR_RAMP.length))];
+  }
+
+  function init() {
+    const geo = drawSmiley(W * dpr, H * dpr);
+    imageData = offCtx.getImageData(0, 0, W * dpr, H * dpr).data;
+
+    // Eye geometry in CSS pixels for the wink overlay
+    leftEyeX  = (geo.cx - geo.eDX) / dpr;
+    rightEyeX = (geo.cx + geo.eDX) / dpr;
+    eyeY      = geo.eY / dpr;
+
+    cellSize = Math.max(6, Math.round(10 * (W / 1280)));
+    const cols = Math.ceil(W / cellSize);
+    const rows = Math.ceil(H / cellSize);
+    particles = [];
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const hx = col * cellSize + cellSize / 2;
+        const hy = row * cellSize + cellSize / 2;
+        const b = sampleBrightness(Math.round(hx * dpr), Math.round(hy * dpr));
+        if (b < BRIGHTNESS_FLOOR) continue;
+        particles.push({
+          x: hx, y: hy,
+          vx: 0, vy: 0,
+          hx, hy,
+          brightness: b,
+          restChar: charFor(b),
+          char: charFor(b),
+          scramble: 0,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+  }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    init();
+  }
+
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 80);
+  });
+  resize();
+
+  // ─ Input ──────────────────────────────────────────────────────────────────
+  canvas.addEventListener('mousemove', e => {
+    mouseX = e.clientX; mouseY = e.clientY; mouseActive = true;
+  });
+  canvas.addEventListener('mouseleave', () => { mouseActive = false; });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; mouseActive = true;
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { mouseActive = false; });
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 3) strobeUntil = performance.now() + STROBE_MS;
+  }, { passive: true });
+
+  // ─ Update / render ────────────────────────────────────────────────────────
+  function update(dt, time) {
+    const tSec = time / 1000;
+
+    for (let i = 0, n = particles.length; i < n; i++) {
+      const p = particles[i];
+
+      if (mouseActive) {
+        const dx = p.x - mouseX, dy = p.y - mouseY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < SCRAMBLE_RADIUS_SQ) {
+          const d = Math.sqrt(d2) || 0.001;
+          const proximity = 1 - d / SCRAMBLE_RADIUS;
+          const accel = PUSH_ACCEL * proximity * proximity;
+          p.vx += (dx / d) * accel * dt;
+          p.vy += (dy / d) * accel * dt;
+          p.scramble = Math.min(1, p.scramble + proximity * 0.5);
+        }
+      }
+
+      // Spring back to home + damping (semi-implicit)
+      p.vx += (p.hx - p.x) * RETURN_K * dt;
+      p.vy += (p.hy - p.y) * RETURN_K * dt;
+      const damp = Math.exp(-RETURN_DAMP * dt);
+      p.vx *= damp;
+      p.vy *= damp;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      p.scramble = Math.max(0, p.scramble - 2.0 * dt);
+
+      if (p.scramble > 0.05 && Math.random() < p.scramble * 0.8) {
+        const base = Math.floor(p.brightness * CHAR_RAMP.length);
+        const shift = (Math.random() < 0.5 ? -1 : 1) * (1 + (Math.random() * 2 | 0));
+        p.char = CHAR_RAMP[Math.max(1, Math.min(CHAR_RAMP.length - 1, base + shift))];
+      } else {
+        p.char = p.restChar;
+      }
+
+      // Low-chance ambient twinkle — scramble a single particle slightly.
+      if (!PREFERS_REDUCED_MOTION && Math.random() < 0.0008 && p.scramble < 0.01) {
+        p.scramble = 0.15 + Math.random() * 0.2;
+      }
+    }
+
+    // Wink bookkeeping — phase within the period, used by render()
+    const winkPhase = tSec % WINK_PERIOD_S;
+    return { winking: !PREFERS_REDUCED_MOTION && winkPhase < WINK_DURATION_S };
+  }
+
+  function render(state, time) {
+    const strobing = time < strobeUntil;
+
+    // Strobe tints the whole background; otherwise flat bg.
+    ctx.fillStyle = strobing ? 'rgba(255,255,255,0.22)' : BG;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.font = cellSize + 'px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const color = strobing ? POP : PRIMARY;
+    for (let i = 0, n = particles.length; i < n; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = strobing ? 1 : p.brightness;
+      ctx.fillStyle = color;
+      ctx.fillText(p.char, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+
+    // Wink: bar of '#' chars across each eye hole for WINK_DURATION_S
+    if (state.winking) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 1;
+      for (const ex of [leftEyeX, rightEyeX]) {
+        for (let i = -2; i <= 2; i++) {
+          ctx.fillText('#', ex + i * cellSize, eyeY);
+        }
+      }
+    }
+  }
+
+  function frame(time) {
+    requestAnimationFrame(frame);
+    const dt = Math.min((time - lastTime) / 1000, 0.05);
+    lastTime = time;
+    if (document.hidden) return;
+    const state = update(dt, time);
+    render(state, time);
+  }
+  requestAnimationFrame(frame);
+
+  // ─ Modals ─────────────────────────────────────────────────────────────────
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBodyEl = document.getElementById('modal-body');
+  const modalClose = modalBackdrop.querySelector('.close');
+  let modalOpen = false;
+
+  function openModal(title, contentFn) {
+    modalTitle.textContent = title;
+    modalBodyEl.textContent = '';
+    contentFn(modalBodyEl);
+    modalBackdrop.classList.add('open');
+    modalOpen = true;
+  }
+  function closeModal() {
+    modalBackdrop.classList.remove('open');
+    modalOpen = false;
+  }
+  modalClose.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', e => {
+    if (e.target === modalBackdrop) closeModal();
+  });
+
+  // DOM helpers — same style as tb303.html for consistency
+  function h3(parent, text) { const el = document.createElement('h3'); el.textContent = text; parent.appendChild(el); }
+  function p(parent, parts) {
+    const el = document.createElement('p');
+    if (typeof parts === 'string') { el.textContent = parts; }
+    else {
+      parts.forEach(part => {
+        if (typeof part === 'string') el.appendChild(document.createTextNode(part));
+        else if (part.strong) { const s = document.createElement('strong'); s.textContent = part.strong; el.appendChild(s); }
+        else if (part.em)     { const e = document.createElement('em');     e.textContent = part.em;     el.appendChild(e); }
+      });
+    }
+    parent.appendChild(el);
+  }
+  function quote(parent, text) { const el = document.createElement('blockquote'); el.textContent = text; parent.appendChild(el); }
+  function ul(parent, items) {
+    const list = document.createElement('ul');
+    items.forEach(item => {
+      const li = document.createElement('li');
+      if (typeof item === 'string') li.textContent = item;
+      else item.forEach(part => {
+        if (typeof part === 'string') li.appendChild(document.createTextNode(part));
+        else if (part.strong) { const s = document.createElement('strong'); s.textContent = part.strong; li.appendChild(s); }
+      });
+      list.appendChild(li);
+    });
+    parent.appendChild(list);
+  }
+
+  function historyContent(el) {
+    h3(el, 'A Face Before Acid');
+    p(el, [
+      'The round yellow smiley predates acid house by a quarter century. In 1963, ',
+      {strong: 'Harvey Ball'}, ', a graphic designer in Worcester, Massachusetts, was paid $45 by State Mutual Life Assurance to boost employee morale after a bruising merger. He drew the face in ten minutes. He never trademarked it.'
+    ]);
+    p(el, [
+      'By the 1970s, the Spain brothers in Philadelphia slapped ', {em: 'HAVE A HAPPY DAY'}, ' under it and moved fifty million units. It became shorthand for corporate cheerfulness — flat, obedient, inoffensive. Exactly the thing a youth movement would eventually want to detourn.'
+    ]);
+
+    h3(el, 'Britain, 1988');
+    p(el, [
+      'When acid house crossed from Chicago to Britain in late 1987, it arrived without iconography. Early imports were bootlegged 12-inches with hand-stamped labels. The movement needed a face.'
+    ]);
+    p(el, [
+      'That face turned up on ', {strong: 'Bomb The Bass'}, '\u2019s "Beat Dis" (February 1988, #2 UK), whose sleeve featured a smiley riddled with bullet holes. Weeks later ', {strong: 'Danny Rampling'}, '\u2019s Shoom nights at the Fitness Centre on Southwark Street plastered the face across flyers and T-shirts. By summer the smiley was everywhere — Haçienda regulars wore it, Boy George wore it, warehouse parties painted it fifteen feet tall on arch walls outside London.'
+    ]);
+
+    h3(el, 'Why This Face, Why Then');
+    p(el, 'The smiley worked because it held three readings at once — and the acid house scene could hold all three simultaneously.');
+    ul(el, [
+      [{strong: 'Sincere: '}, 'the empathogenic effect of MDMA mapped onto a face that was already trying to smile back at you. Ravers hugging strangers on a Hackney dance floor at 4am meant the smile more than the corporate origin ever did.'],
+      [{strong: 'Ironic: '}, 'in Thatcher\u2019s Britain — mass unemployment, miners\u2019 strike still raw — a forced corporate grin was already a dark joke before you added anything.'],
+      [{strong: 'Pharmacological: '}, 'the yellow pill imagery was deliberate and everyone knew it. Dealers stamped smileys into ecstasy tablets. The symbol and the substance became the same shape.']
+    ]);
+
+    h3(el, 'The Moral Panic');
+    p(el, [
+      'In October 1988, ', {em: 'The Sun'}, ' ran "SHOOM! The Cosmic Crusaders" calling the scene a harmless new craze. Ten days later the same paper flipped: "EVIL OF ECSTASY" on the front page.'
+    ]);
+    p(el, [
+      'Within months, Top Shop pulled smiley T-shirts. Smiley badges were grounds for ejection from pubs. ', {strong: 'BBC Radio 1'}, ' banned tracks with "acid" in the title. Police powers expanded; warehouse-party organizers were arrested under 1930s-era entertainment licensing laws. The 1994 Criminal Justice and Public Order Act — specifically criminalizing gatherings around "music wholly or predominantly characterized by the emission of a succession of repetitive beats" — was the endgame of a five-year institutional freakout.'
+    ]);
+    quote(el, '"A kind of pouting, contemptuous smile, as if to say: we know what you think of us and we don\u2019t care."');
+
+    h3(el, 'After');
+    p(el, [
+      'Watchmen (1986) put a blood-splattered smiley on the cover of issue #1 — that image pre-dated the acid house appropriation by two years but looped back into it. ', {strong: 'Alan Moore'}, ' was not pleased when rave flyers lifted it.'
+    ]);
+    p(el, [
+      'By 1994 the smiley had been so thoroughly absorbed into youth culture that it stopped being legible as acid-house shorthand. It became ambient — airport souvenirs, kid\u2019s stickers, emoji. The specifically ', {em: 'acid'}, ' smiley survives in niches: hardstyle record labels, French touch covers, Supreme drops that sampled Futura\u2019s 1988 flyers for Shoom.'
+    ]);
+
+    h3(el, 'The Shape Itself');
+    p(el, 'Two dots and a curve. The reason it particle-morphs well is the same reason it survived fifty years: nothing about the drawing is load-bearing. You can sample it coarsely, render it in ASCII, draw it with a finger in a club bathroom — the shape tolerates enormous degradation and still reads. A more detailed icon (a TB-303, say, with its knobs and labels and Roland logo) falls apart at low sample rates. The smiley is lossy-compression-proof by construction.');
+  }
+
+  function controlsContent(el) {
+    h3(el, 'Keyboard');
+    ul(el, [
+      [{strong: 'S'}, ' \u2014 Strobe flash'],
+      [{strong: 'M'}, ' \u2014 History & why this face'],
+      [{strong: '?'}, ' \u2014 This help'],
+      [{strong: 'Esc'}, ' \u2014 Close modal']
+    ]);
+    h3(el, 'Touch');
+    ul(el, [
+      '1 finger: push particles around',
+      '3 fingers: strobe flash'
+    ]);
+    h3(el, 'Modal Navigation');
+    ul(el, [
+      [{strong: 'j / \u2193'}, ' \u2014 Scroll down'],
+      [{strong: 'k / \u2191'}, ' \u2014 Scroll up'],
+      [{strong: 'g / G'}, ' \u2014 Jump to top / bottom']
+    ]);
+  }
+
+  const SCROLL_STEP = 60;
+  const KEYMAP = {
+    'm': () => openModal('☻  Acid Smiley', historyContent),
+    '?': () => openModal('Controls', controlsContent),
+    's': () => { strobeUntil = performance.now() + STROBE_MS; },
+    'Escape': closeModal,
+  };
+
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (modalOpen) {
+      switch (e.code) {
+        case 'KeyJ': case 'ArrowDown': e.preventDefault(); modalBodyEl.scrollBy(0, SCROLL_STEP); return;
+        case 'KeyK': case 'ArrowUp':   e.preventDefault(); modalBodyEl.scrollBy(0, -SCROLL_STEP); return;
+        case 'KeyG':                    e.preventDefault();
+          modalBodyEl.scrollTo(0, e.shiftKey ? modalBodyEl.scrollHeight : 0); return;
+        case 'Escape':                  e.preventDefault(); closeModal(); return;
+      }
+      const h = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase()];
+      if (h && e.key !== 'Escape') { closeModal(); setTimeout(h, 50); }
+      return;
+    }
+
+    const h = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase()];
+    if (h) { e.preventDefault(); h(); }
+  });
+})();
+</script>
+</body>
+</html>
