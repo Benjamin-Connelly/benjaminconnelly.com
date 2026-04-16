@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /test-results/
+Disallow: /playwright-report/
+
+Sitemap: https://benjaminconnelly.com/sitemap.xml
