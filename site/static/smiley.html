@@ -41,6 +41,15 @@ canvas { display: block; }
 }
 #help-pill .sep { margin: 0 6px; opacity: 0.3; }
 
+#photo-warn {
+  position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%);
+  font: 10px 'Courier New', monospace;
+  color: rgba(255,165,0,0.7);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  pointer-events: none; z-index: 10;
+}
+
 #modal-backdrop {
   position: fixed; inset: 0; background: rgba(5,2,10,0.9);
   z-index: 100; display: none; align-items: center; justify-content: center;
@@ -101,6 +110,9 @@ canvas { display: block; }
 <a id="back" href="/">&lt; back</a>
 <canvas id="c"></canvas>
 
+<div id="photo-warn" role="note">
+  ⚠ contains strobe (S key) — may trigger photosensitive seizures
+</div>
 <div id="help-pill">
   <kbd>S</kbd> strobe<span class="sep">·</span><kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
 </div>
@@ -334,7 +346,9 @@ canvas { display: block; }
   }, { passive: false });
   canvas.addEventListener('touchend', () => { mouseActive = false; });
   canvas.addEventListener('touchstart', e => {
-    if (e.touches.length === 3) strobeUntil = performance.now() + STROBE_MS;
+    if (e.touches.length === 3 && !PREFERS_REDUCED_MOTION) {
+      strobeUntil = performance.now() + STROBE_MS;
+    }
   }, { passive: true });
 
   // ─ Update / render ────────────────────────────────────────────────────────
@@ -622,7 +636,12 @@ canvas { display: block; }
   const KEYMAP = {
     'm': () => openModal('☻  Acid Smiley', historyContent),
     '?': () => openModal('Controls', controlsContent),
-    's': () => { strobeUntil = performance.now() + STROBE_MS; },
+    // Strobe is a no-op when the user has OS-level reduced motion on —
+    // that flag is the best broad signal we have for photosensitivity.
+    's': () => {
+      if (PREFERS_REDUCED_MOTION) return;
+      strobeUntil = performance.now() + STROBE_MS;
+    },
     'Escape': closeModal,
   };
 
