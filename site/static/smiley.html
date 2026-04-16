@@ -129,7 +129,7 @@ canvas { display: block; }
 <canvas id="c"></canvas>
 
 <div id="help-pill">
-  <kbd>S</kbd> strobe (hold)<span class="sep">·</span><kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
+  <kbd>S</kbd> strobe (hold)<span class="sep">·</span><kbd>E</kbd> mode<span class="sep">·</span><kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
 </div>
 <div id="photo-warn" role="note">
   ⚠ contains strobe + sustained flashing (hold S) — may trigger photosensitive seizures
@@ -166,6 +166,22 @@ canvas { display: block; }
   // scanning acceptance test for the word. The rave-flyer op-art legibility
   // comes from the op-art warp below, not from a brightness ramp.
   const ACID = ['A', 'C', 'I', 'D'];
+
+  // ── Background mode ───────────────────────────────────────────────────────
+  // The face + chromatic fringe always renders the same way. What changes
+  // per mode is the entire background layer behind it. E cycles modes.
+  //
+  //   'op-art'   — warped ACID grid + breathing barrel warp (default)
+  //   'zoetrope' — Steve-Mould-style spinning 8-arm spiral. At 60 Hz display
+  //                the rotation is tuned near the aliasing sweet spot, so the
+  //                arms appear almost stationary with slow backward drift.
+  //   'rotsnake' — Kitaoka "rotating snakes" peripheral-drift palette. The
+  //                image is STATIC; the apparent motion is produced by your
+  //                peripheral vision reading the KBWY luminance sequence.
+  const MODES = ['op-art', 'zoetrope', 'rotsnake'];
+  let modeIdx = 0;
+  let modeChangedAt = -1e9;  // for the brief mode-label overlay
+
   const SCRAMBLE_RADIUS = 70;
   const SCRAMBLE_RADIUS_SQ = SCRAMBLE_RADIUS * SCRAMBLE_RADIUS;
   const PUSH_ACCEL = 520;       // px/s² applied radially when mouse is close
@@ -197,6 +213,9 @@ canvas { display: block; }
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let particles = [];
+  // Zoetrope particles — independent of the grid, laid out on an 8-arm
+  // Archimedean spiral. Recomputed on resize.
+  let zoetropeParticles = [];
   let cellSize = 9;
   let mouseX = 0, mouseY = 0, mouseActive = false;
   let dpr = 1, W, H;
@@ -366,6 +385,44 @@ canvas { display: block; }
         });
       }
     }
+
+    initZoetrope();
+  }
+
+  // ── Zoetrope mode: 8-arm Archimedean spiral ────────────────────────────
+  // Each arm carries CELLS_PER_ARM letters of ACID at regular radial
+  // spacing. Arms are offset by 360°/ARMS so that when the whole thing
+  // rotates at ZOETROPE_OMEGA ≈ 7 Hz on a 60 Hz display, each frame
+  // advances the position by just under one full arm-slot (45°). The
+  // mis-match reads as slow BACKWARD drift — the aliasing that made
+  // Mould's spinning cactus appear to march in place against its spin.
+  function initZoetrope() {
+    zoetropeParticles = [];
+    const ARMS = 8;
+    const CELLS_PER_ARM = 42;
+    const cy = usableMidY();
+    const maxR = Math.min(W, H - (H - usableH())) * 0.42;
+    for (let arm = 0; arm < ARMS; arm++) {
+      const armAngle = (arm / ARMS) * Math.PI * 2;
+      for (let i = 0; i < CELLS_PER_ARM; i++) {
+        const t = (i + 1) / (CELLS_PER_ARM + 1);  // 0..1 along arm
+        const r = 28 + t * maxR;
+        const theta0 = armAngle + t * Math.PI * 1.25;  // curl outward
+        zoetropeParticles.push({
+          theta0,
+          r,
+          acidIdx: i & 3,
+        });
+      }
+    }
+  }
+
+  // Usable vertical extent above the bottom help-pill + warn strip.
+  function usableH() {
+    return Math.max(H * 0.5, H - 96);
+  }
+  function usableMidY() {
+    return usableH() / 2;
   }
 
   function resize() {
@@ -469,6 +526,57 @@ canvas { display: block; }
     return { winking: !PREFERS_REDUCED_MOTION && winkPhase < WINK_DURATION_S };
   }
 
+  // ── Zoetrope background ──────────────────────────────────────────────────
+  // The classic Steve Mould "spinning cactus" trick works because the
+  // display samples the rotation at discrete frame intervals. With 8 spiral
+  // arms on a 60 Hz monitor, a rotation of 2π/ARMS per frame (so exactly
+  // 7.5 Hz) locks the arms — each advances into the next slot, reading as
+  // standstill. We pick 7.0 Hz — deliberately off-sync — so the arms drift
+  // slowly BACKWARD (temporal aliasing). That backward march is the
+  // cactus-spiral illusion.
+  const ZOETROPE_OMEGA = 2 * Math.PI * 7.0;  // rad/s; tuned for 60 fps
+  function renderZoetropeBg(time, cx, cy, s, bgHex, flash) {
+    const rot = (time / 1000) * ZOETROPE_OMEGA;
+    const color = bgHex || (flash ? '#ffffff' : '#e64b00');
+    ctx.fillStyle = color;
+    const alpha = bgHex ? (0.55 + 0.25 * s) : 0.78;
+    for (let i = 0, n = zoetropeParticles.length; i < n; i++) {
+      const p = zoetropeParticles[i];
+      const theta = p.theta0 + rot;
+      ctx.globalAlpha = alpha;
+      ctx.fillText(ACID[p.acidIdx], cx + p.r * Math.cos(theta), cy + p.r * Math.sin(theta));
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Rotsnake background (Kitaoka peripheral-drift) ───────────────────────
+  // Static image. Every cell is assigned a color from the KBWY palette
+  // (black → blue → white → yellow) based on angular position modulo 4.
+  // Adjacent concentric rings reverse the sequence direction, so ring N
+  // appears to rotate clockwise and ring N+1 counter-clockwise — but only
+  // in your peripheral vision. Staring at the face makes the rings spin;
+  // staring at the rings stops them dead.
+  const KITAOKA = ['#000000', '#1a1f6b', '#f5f5f5', '#ffd700'];
+  function renderRotsnakeBg(time, cx, cy, s, bgHex, flash) {
+    const ringW = cellSize * 3.2;
+    const angStep = Math.PI / 10;  // 20 segments per full revolution
+    for (let i = 0, n = particles.length; i < n; i++) {
+      const p = particles[i];
+      if (p.isFace) continue;
+      const dx = p.x - cx, dy = p.y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const ring = Math.floor(r / ringW);
+      const angle = Math.atan2(dy, dx) + Math.PI;
+      let phase = Math.floor(angle / angStep) & 3;
+      if (ring & 1) phase = (3 - phase) & 3;  // alternate ring direction
+      // Strobe overrides the palette so chaos still reads as chaos.
+      ctx.fillStyle = bgHex || KITAOKA[phase];
+      ctx.globalAlpha = bgHex ? (0.55 + 0.25 * s) : 1;
+      ctx.fillText(ACID[p.acidIdx], p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // Smooth strobeIntensity toward its target. Hold ramps 0→1 over
   // STROBE_RAMP_MS; release decays 1→0 over STROBE_TAIL_MS. Auto-release
   // after 15 s even if the key stays down (seizure safety cap).
@@ -495,8 +603,17 @@ canvas { display: block; }
     updateStrobeIntensity(time);
     const s = strobeIntensity;              // 0..1 chaos dial
     const flash = time < strobeFlashUntil;  // brief tap flash
-    const cx = W / 2, cy = H / 2;
+    const mode = MODES[modeIdx];
+    // Warp + face center moved up to usable midpoint so the face sits
+    // above the bottom pill/warn strip (the face was drawn with this
+    // offset in drawSmiley too — keeping them matched is what lets the
+    // barrel warp wrap evenly around the face).
+    const cx = W / 2, cy = usableMidY();
     const maxD2 = (W * W + H * H) / 4;
+    // Rotsnake uses static positions so the peripheral-drift illusion
+    // can fire — any motion kills it. Face still breathes, everything
+    // else freezes.
+    const staticMode = (mode === 'rotsnake');
 
     // ── Clear: trails build up with intensity (palinopsia) ────────────────
     // At s=0 we fully clear each frame. At s=1 only ~12% of the prior
@@ -531,41 +648,50 @@ canvas { display: block; }
     const bgHex = s > 0.25 ? PSYCH_PALETTE[(palIdx + 3) & 7] : null;
 
     // ── Warp + chromatic escalate with intensity ─────────────────────────
-    const warpBase = PREFERS_REDUCED_MOTION ? 0 : 0.38 + 0.25 * Math.sin(time * 0.00035);
+    const warpBase = (PREFERS_REDUCED_MOTION || staticMode)
+      ? 0 : 0.38 + 0.25 * Math.sin(time * 0.00035);
     const warpK = warpBase + s * 1.1 * Math.abs(Math.sin(time * 0.014));
     const tripBase = PREFERS_REDUCED_MOTION ? 0 : 0.6 + 1.4 * (1 + Math.sin(time * 0.00028));
     const trip = tripBase + s * 11 * (0.4 + 0.6 * Math.abs(Math.sin(time * 0.019)));
 
-    // Letter scroll every 1.8 s + faster chaos jitter at peak.
-    const shift = PREFERS_REDUCED_MOTION ? 0 : Math.floor(time / 1800) & 3;
-    const chaosShift = s > 0.35 ? (Math.floor(time * 0.04) & 3) : 0;
+    // Letter scroll every 1.8 s + faster chaos jitter at peak. Frozen
+    // in rotsnake mode — the illusion reads from a static image.
+    const shift = (PREFERS_REDUCED_MOTION || staticMode) ? 0 : Math.floor(time / 1800) & 3;
+    const chaosShift = (s > 0.35 && !staticMode) ? (Math.floor(time * 0.04) & 3) : 0;
 
     // Face shudder — per-frame sub-pixel jitter at peak.
     const shudAmp = s > 0.4 ? s * 3.5 : 0;
     const shudX = shudAmp ? (Math.random() - 0.5) * shudAmp : 0;
     const shudY = shudAmp ? (Math.random() - 0.5) * shudAmp : 0;
 
-    // ── Pass 1: background grid cells ─────────────────────────────────────
-    if (bgHex) {
-      ctx.fillStyle = bgHex;
-      for (let i = 0, n = particles.length; i < n; i++) {
-        const p = particles[i];
-        if (p.isFace) continue;
-        const dx = p.x - cx, dy = p.y - cy;
-        const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
-        ctx.globalAlpha = p.brightness * (0.55 + 0.25 * s);
-        const idx = (p.acidIdx + shift + chaosShift + (s > 0.6 && Math.random() < 0.3 ? 1 : 0)) & 3;
-        ctx.fillText(ACID[idx], cx + dx * factor, cy + dy * factor);
-      }
+    // ── Pass 1: background (mode-dispatched) ──────────────────────────────
+    if (mode === 'zoetrope') {
+      renderZoetropeBg(time, cx, cy, s, bgHex, flash);
+    } else if (mode === 'rotsnake') {
+      renderRotsnakeBg(time, cx, cy, s, bgHex, flash);
     } else {
-      ctx.fillStyle = flash ? 'rgba(255,255,255,0.55)' : 'rgba(230,75,0,0.72)';
-      for (let i = 0, n = particles.length; i < n; i++) {
-        const p = particles[i];
-        if (p.isFace) continue;
-        const dx = p.x - cx, dy = p.y - cy;
-        const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
-        ctx.globalAlpha = p.brightness;
-        ctx.fillText(ACID[(p.acidIdx + shift) & 3], cx + dx * factor, cy + dy * factor);
+      // Default op-art grid with barrel-warp
+      if (bgHex) {
+        ctx.fillStyle = bgHex;
+        for (let i = 0, n = particles.length; i < n; i++) {
+          const p = particles[i];
+          if (p.isFace) continue;
+          const dx = p.x - cx, dy = p.y - cy;
+          const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+          ctx.globalAlpha = p.brightness * (0.55 + 0.25 * s);
+          const idx = (p.acidIdx + shift + chaosShift + (s > 0.6 && Math.random() < 0.3 ? 1 : 0)) & 3;
+          ctx.fillText(ACID[idx], cx + dx * factor, cy + dy * factor);
+        }
+      } else {
+        ctx.fillStyle = flash ? 'rgba(255,255,255,0.55)' : 'rgba(230,75,0,0.72)';
+        for (let i = 0, n = particles.length; i < n; i++) {
+          const p = particles[i];
+          if (p.isFace) continue;
+          const dx = p.x - cx, dy = p.y - cy;
+          const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+          ctx.globalAlpha = p.brightness;
+          ctx.fillText(ACID[(p.acidIdx + shift) & 3], cx + dx * factor, cy + dy * factor);
+        }
       }
     }
 
@@ -642,6 +768,23 @@ canvas { display: block; }
           ctx.fillText('D', cx + dx * factor, cy + dy * factor);
         }
       }
+    }
+
+    // Mode label — fades in on mode change, holds 1s, fades out over 800ms.
+    const sinceMode = time - modeChangedAt;
+    if (sinceMode < 2000) {
+      let modeAlpha;
+      if (sinceMode < 200) modeAlpha = sinceMode / 200;
+      else if (sinceMode < 1200) modeAlpha = 1;
+      else modeAlpha = Math.max(0, 1 - (sinceMode - 1200) / 800);
+      ctx.save();
+      ctx.font = '14px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = PRIMARY;
+      ctx.globalAlpha = modeAlpha * 0.9;
+      ctx.fillText('mode: ' + mode, W / 2, 24);
+      ctx.restore();
     }
   }
 
@@ -754,7 +897,8 @@ canvas { display: block; }
   function controlsContent(el) {
     h3(el, 'Keyboard');
     ul(el, [
-      [{strong: 'S'}, ' \u2014 Strobe flash'],
+      [{strong: 'S'}, ' \u2014 Strobe. Tap = single flash. Hold = sustained hallucination that ramps up over ~1.2 s and auto-releases after 15 s.'],
+      [{strong: 'E'}, ' \u2014 Cycle background mode: op-art / zoetrope (spinning 8-arm spiral, ~7 Hz — watch it drift backward on a 60 Hz monitor) / rotsnake (Kitaoka peripheral-drift palette — stare at the face and the BG spins).'],
       [{strong: 'M'}, ' \u2014 History & why this face'],
       [{strong: '?'}, ' \u2014 This help'],
       [{strong: 'Esc'}, ' \u2014 Close modal']
@@ -776,12 +920,21 @@ canvas { display: block; }
   const SCROLL_STEP = 60;
   const GG_WINDOW_MS = 500;  // `gg` = two g presses within this window
   let lastGPressAt = 0;
+  // Cycle through background illusion modes: op-art → zoetrope → rotsnake
+  // and back. Updates modeChangedAt so the render loop can draw the brief
+  // "mode: <name>" label overlay.
+  function cycleMode() {
+    modeIdx = (modeIdx + 1) % MODES.length;
+    modeChangedAt = performance.now();
+  }
+
   // KEYMAP covers discrete (tap-only) keys. S is special — handled below
   // via keydown + keyup with e.repeat filtering so "hold" maps to the
   // sustained hallucination mode.
   const KEYMAP = {
     'm': () => openModal('☻  Acid Smiley', historyContent),
     '?': () => openModal('Controls', controlsContent),
+    'e': cycleMode,
     'Escape': closeModal,
   };
 
