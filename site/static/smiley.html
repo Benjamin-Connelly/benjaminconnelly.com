@@ -29,7 +29,7 @@ canvas { display: block; }
   background: rgba(5,2,10,0.7); border: 1px solid rgba(255,215,0,0.2);
   border-radius: 20px; padding: 6px 18px; z-index: 10;
   font: 12px 'Courier New', monospace; color: rgba(255,215,0,0.6);
-  pointer-events: none; white-space: nowrap;
+  pointer-events: none; white-space: nowrap; max-width: 92vw;
   transition: opacity 0.3s;
 }
 @supports (backdrop-filter: blur(8px)) {
@@ -38,8 +38,40 @@ canvas { display: block; }
 #help-pill kbd {
   font: inherit; background: rgba(255,215,0,0.14);
   border-radius: 3px; padding: 1px 5px; margin: 0 2px;
+  border: none; color: inherit;
+}
+#help-pill kbd[data-action] {
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: background 0.15s;
+}
+#help-pill kbd[data-action]:hover,
+#help-pill kbd[data-action]:active,
+#help-pill kbd[data-action]:focus-visible {
+  background: rgba(255,215,0,0.30);
+  outline: none;
 }
 #help-pill .sep { margin: 0 6px; opacity: 0.3; }
+
+/* Touch-first layout: bigger hit targets, allow wrap on narrow screens.
+   Also flip the stack order — on phones the pill is the primary UI so it
+   sits above the warning rather than being tucked below it. */
+@media (pointer: coarse), (max-width: 520px) {
+  #help-pill {
+    white-space: normal;
+    line-height: 2.1;
+    padding: 8px 16px;
+  }
+  #help-pill kbd[data-action] {
+    padding: 6px 10px;
+    margin: 0 4px;
+    font-size: 13px;
+  }
+  #help-pill .sep { margin: 0 4px; }
+}
 
 #photo-warn {
   position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
@@ -129,7 +161,7 @@ canvas { display: block; }
 <canvas id="c"></canvas>
 
 <div id="help-pill">
-  <kbd>S</kbd> strobe (hold)<span class="sep">·</span><kbd>E</kbd> mode<span class="sep">·</span><kbd>M</kbd> history<span class="sep">·</span><kbd>?</kbd> controls
+  <kbd data-action="strobe" role="button" tabindex="0" aria-label="Strobe flash">S</kbd> strobe (hold)<span class="sep">·</span><kbd data-action="mode" role="button" tabindex="0" aria-label="Cycle illusion mode">E</kbd> mode<span class="sep">·</span><kbd data-action="history" role="button" tabindex="0" aria-label="Open history">M</kbd> history<span class="sep">·</span><kbd data-action="controls" role="button" tabindex="0" aria-label="Open controls">?</kbd> controls
 </div>
 <div id="photo-warn" role="note">
   ⚠ contains strobe + sustained flashing (hold S) — may trigger photosensitive seizures
@@ -386,6 +418,38 @@ canvas { display: block; }
       }
     }
 
+    // Re-index FACE cells per contiguous row-segment so every segment reads
+    // "ACID ACID ..." from its leftmost visible cell. The face has voids
+    // (eyes, mouth) that split rows into multiple segments; resetting at
+    // each gap makes even the thin strips — chin, lip above the smile, top
+    // of the head — spell ACID cleanly instead of showing arbitrary
+    // cyclic-shifted windows like "CIDA" or "DACI".
+    //
+    // Background cells keep the global column-based indexing so the
+    // scanning waves still propagate across the whole canvas.
+    const faceRows = new Map();
+    for (const p of particles) {
+      if (!p.isFace) continue;
+      const key = Math.round(p.hy);
+      if (!faceRows.has(key)) faceRows.set(key, []);
+      faceRows.get(key).push(p);
+    }
+    const SEGMENT_GAP = cellSize * 1.6;  // > 1 missing cell = new segment
+    for (const row of faceRows.values()) {
+      row.sort((a, b) => a.hx - b.hx);
+      let segIdx = 0;
+      for (let i = 0; i < row.length; i++) {
+        if (i > 0 && (row[i].hx - row[i - 1].hx) > SEGMENT_GAP) {
+          segIdx = 0;  // eye / mouth void — start a new ACID run
+        }
+        const idx = segIdx & 3;
+        row[i].acidIdx = idx;
+        row[i].restChar = ACID[idx];
+        row[i].char = ACID[idx];
+        segIdx++;
+      }
+    }
+
     initZoetrope();
   }
 
@@ -449,31 +513,83 @@ canvas { display: block; }
     mouseX = e.clientX; mouseY = e.clientY; mouseActive = true;
   });
   canvas.addEventListener('mouseleave', () => { mouseActive = false; });
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; mouseActive = true;
-  }, { passive: false });
-  canvas.addEventListener('touchend', () => { mouseActive = false; });
-  // 3-finger tap = single flash. Hold with 3 fingers = sustained chaos.
+
+  // Touch gestures:
+  //   1 finger — tap = single flash; hold = sustained chaos (same as key S).
+  //              Dragging past TOUCH_DRAG_THRESHOLD cancels the strobe so the
+  //              gesture becomes a particle-push drag instead.
+  //   2 fingers — tap once cycles the illusion mode (same as key E).
+  //   Modal-open check prevents gestures from firing under the modal.
+  const TOUCH_DRAG_THRESHOLD_SQ = 14 * 14;
+  let touch1StartX = 0, touch1StartY = 0;
+  let touchGestureIsStrobe = false;
+  let twoFingerConsumed = false;
+
   canvas.addEventListener('touchstart', e => {
-    if (PREFERS_REDUCED_MOTION) return;
-    if (e.touches.length === 3) {
+    if (modalOpen) return;
+    if (e.touches.length === 1 && !PREFERS_REDUCED_MOTION) {
+      const t = e.touches[0];
+      touch1StartX = t.clientX;
+      touch1StartY = t.clientY;
       strobeFlashUntil = performance.now() + STROBE_FLASH_MS;
-      strobeHoldActive = true;
-      strobeHoldStart = performance.now();
+      if (!strobeHoldActive) {
+        strobeHoldActive = true;
+        strobeHoldStart = performance.now();
+      }
+      touchGestureIsStrobe = true;
+      twoFingerConsumed = false;
+    } else if (e.touches.length === 2 && !twoFingerConsumed) {
+      // Second finger lands — treat as 2-finger mode-cycle gesture.
+      if (touchGestureIsStrobe && strobeHoldActive) {
+        strobeHoldActive = false;
+        strobeReleaseAt = performance.now();
+        touchGestureIsStrobe = false;
+      }
+      cycleMode();
+      twoFingerConsumed = true;
     }
   }, { passive: true });
+
+  canvas.addEventListener('touchmove', e => {
+    if (modalOpen) return;
+    e.preventDefault();
+    if (e.touches.length >= 1) {
+      const t = e.touches[0];
+      // If the first finger has wandered far enough, downgrade the gesture
+      // from "strobe hold" to "particle push drag" and release the strobe.
+      if (touchGestureIsStrobe) {
+        const dx = t.clientX - touch1StartX;
+        const dy = t.clientY - touch1StartY;
+        if (dx * dx + dy * dy > TOUCH_DRAG_THRESHOLD_SQ) {
+          strobeHoldActive = false;
+          strobeReleaseAt = performance.now();
+          touchGestureIsStrobe = false;
+        }
+      }
+      mouseX = t.clientX; mouseY = t.clientY; mouseActive = true;
+    }
+  }, { passive: false });
+
   canvas.addEventListener('touchend', e => {
-    if (strobeHoldActive && e.touches.length < 3) {
-      strobeHoldActive = false;
-      strobeReleaseAt = performance.now();
+    if (e.touches.length === 0) {
+      mouseActive = false;
+      twoFingerConsumed = false;
+      if (touchGestureIsStrobe && strobeHoldActive) {
+        strobeHoldActive = false;
+        strobeReleaseAt = performance.now();
+      }
+      touchGestureIsStrobe = false;
     }
   });
+
   canvas.addEventListener('touchcancel', () => {
-    if (strobeHoldActive) {
+    twoFingerConsumed = false;
+    if (touchGestureIsStrobe && strobeHoldActive) {
       strobeHoldActive = false;
       strobeReleaseAt = performance.now();
     }
+    touchGestureIsStrobe = false;
+    mouseActive = false;
   });
 
   // ─ Update / render ────────────────────────────────────────────────────────
@@ -811,6 +927,12 @@ canvas { display: block; }
     contentFn(modalBodyEl);
     modalBackdrop.classList.add('open');
     modalOpen = true;
+    // Release any active strobe so the chaos doesn't keep ramping behind
+    // the backdrop while the user reads.
+    if (strobeHoldActive) {
+      strobeHoldActive = false;
+      strobeReleaseAt = performance.now();
+    }
   }
   function closeModal() {
     modalBackdrop.classList.remove('open');
@@ -819,6 +941,33 @@ canvas { display: block; }
   modalClose.addEventListener('click', closeModal);
   modalBackdrop.addEventListener('click', e => {
     if (e.target === modalBackdrop) closeModal();
+  });
+
+  // Help-pill kbd elements double as buttons on touch devices — the kbd
+  // visual is an affordance for keyboard users and a hit target for
+  // everyone else. Keyboard / Enter / Space also activate them for a11y.
+  const pillActions = {
+    'strobe': () => {
+      if (!PREFERS_REDUCED_MOTION) {
+        strobeFlashUntil = performance.now() + STROBE_FLASH_MS;
+      }
+    },
+    'mode': cycleMode,
+    'history': () => openModal('☻  Acid Smiley', historyContent),
+    'controls': () => openModal('Controls', controlsContent),
+  };
+  document.querySelectorAll('#help-pill kbd[data-action]').forEach(el => {
+    el.addEventListener('click', () => {
+      const fn = pillActions[el.dataset.action];
+      if (fn) fn();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const fn = pillActions[el.dataset.action];
+        if (fn) fn();
+      }
+    });
   });
 
   // DOM helpers — same style as tb303.html for consistency
@@ -905,8 +1054,11 @@ canvas { display: block; }
     ]);
     h3(el, 'Touch');
     ul(el, [
-      '1 finger: push particles around',
-      '3 fingers: strobe flash'
+      [{strong: '1 finger tap'}, ' \u2014 single strobe flash'],
+      [{strong: '1 finger hold'}, ' \u2014 sustained hallucination (release to fade out)'],
+      [{strong: '1 finger drag'}, ' \u2014 push particles around'],
+      [{strong: '2 fingers'}, ' \u2014 cycle mode'],
+      'All pill buttons at the bottom are tappable.'
     ]);
     h3(el, 'Modal Navigation');
     ul(el, [
