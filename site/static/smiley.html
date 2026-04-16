@@ -10,6 +10,8 @@
   --bg: #05020a;
   --primary: #ffd700;      /* acid yellow */
   --pop: #ff2dd4;          /* strobe flash */
+  --fringe-cyan: #00e0ff;  /* chromatic-aberration ghost */
+  --fringe-magenta: #ff00d0;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); cursor: crosshair; }
@@ -124,8 +126,13 @@ canvas { display: block; }
   const BG = rootStyles.getPropertyValue('--bg').trim();
   const PRIMARY = rootStyles.getPropertyValue('--primary').trim();
   const POP = rootStyles.getPropertyValue('--pop').trim();
+  const FRINGE_CYAN = rootStyles.getPropertyValue('--fringe-cyan').trim();
+  const FRINGE_MAGENTA = rootStyles.getPropertyValue('--fringe-magenta').trim();
 
-  const CHAR_RAMP = [' ', '.', ':', '-', '~', '+', '*', '#', '@', '%'];
+  // Letters of "ACID" tiled across every cell, turning the grid into a
+  // scanning acceptance test for the word. The rave-flyer op-art legibility
+  // comes from the op-art warp below, not from a brightness ramp.
+  const ACID = ['A', 'C', 'I', 'D'];
   const SCRAMBLE_RADIUS = 70;
   const SCRAMBLE_RADIUS_SQ = SCRAMBLE_RADIUS * SCRAMBLE_RADIUS;
   const PUSH_ACCEL = 520;       // px/s² applied radially when mouse is close
@@ -152,7 +159,9 @@ canvas { display: block; }
 
   let imageData = null;
 
-  // ─ Draw the ☻ silhouette at full offscreen resolution ────────────────────
+  // ─ Draw the melted ☻ silhouette at full offscreen resolution ─────────────
+  // Not a clean corporate smiley — the 1988 acid-house version warped on
+  // dance floors under LSD: drippy features, uneven eyes, soft edge wobble.
   function drawSmiley(w, h) {
     offscreen.width = w;
     offscreen.height = h;
@@ -162,33 +171,76 @@ canvas { display: block; }
     const cx = w / 2, cy = h / 2;
     const r = size / 2;
 
-    // Yellow face disc (white in the sampled mask — only brightness matters)
+    // Face disc — radial shading + irregular edge (low-frequency wobble).
+    // Sampled only for brightness, so color doesn't matter here.
     const grd = offCtx.createRadialGradient(cx - r * 0.2, cy - r * 0.3, r * 0.1, cx, cy, r);
     grd.addColorStop(0, '#ffffff');
     grd.addColorStop(0.85, '#e0e0e0');
     grd.addColorStop(1, '#a0a0a0');
     offCtx.fillStyle = grd;
     offCtx.beginPath();
-    offCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    const pts = 64;
+    for (let i = 0; i <= pts; i++) {
+      const a = (i / pts) * Math.PI * 2;
+      const rr = r * (1 + 0.022 * Math.sin(a * 7 + 1.3) + 0.016 * Math.cos(a * 11 - 0.4));
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      if (i === 0) offCtx.moveTo(px, py);
+      else offCtx.lineTo(px, py);
+    }
+    offCtx.closePath();
     offCtx.fill();
 
-    // Eyes (black voids → no particles)
+    // Eyes — asymmetric ellipses (not circles). Left eye slightly wider,
+    // right eye slightly taller — subtly off-kilter, not obviously broken.
     offCtx.fillStyle = '#000';
     const eDX = r * 0.33;
     const eY  = cy - r * 0.18;
-    const eR  = r * 0.10;
+    const eR  = r * 0.11;
     offCtx.beginPath();
-    offCtx.arc(cx - eDX, eY, eR, 0, Math.PI * 2);
-    offCtx.arc(cx + eDX, eY, eR, 0, Math.PI * 2);
+    offCtx.ellipse(cx - eDX, eY, eR * 1.12, eR * 0.95, 0.05, 0, Math.PI * 2);
+    offCtx.ellipse(cx + eDX, eY, eR * 0.95, eR * 1.08, -0.05, 0, Math.PI * 2);
     offCtx.fill();
 
-    // Mouth — thick arc
+    // Melt drips under each eye — black teardrop trailing down, uneven.
+    offCtx.fillStyle = '#000';
+    for (const ex of [cx - eDX, cx + eDX]) {
+      const dripLen = r * (0.16 + 0.08 * (ex < cx ? 1 : 0.6));
+      offCtx.beginPath();
+      offCtx.moveTo(ex - eR * 0.35, eY);
+      offCtx.quadraticCurveTo(ex - eR * 0.1, eY + dripLen * 0.9, ex, eY + dripLen);
+      offCtx.quadraticCurveTo(ex + eR * 0.1, eY + dripLen * 0.9, ex + eR * 0.35, eY);
+      offCtx.closePath();
+      offCtx.fill();
+    }
+
+    // Melty mouth — three overlapping arcs at slight offsets give organic,
+    // uneven thickness (not a perfect clean stroke). Plus a drip globule
+    // hanging off the right corner.
     offCtx.strokeStyle = '#000';
-    offCtx.lineWidth = r * 0.10;
     offCtx.lineCap = 'round';
+    const mCy = cy + r * 0.07;
+    const mR  = r * 0.52;
+    for (let j = 0; j < 3; j++) {
+      offCtx.lineWidth = r * (0.075 + j * 0.012);
+      offCtx.beginPath();
+      offCtx.arc(cx + (j - 1) * r * 0.012,
+                 mCy + (j - 1) * r * 0.01,
+                 mR * (1 + (j - 1) * 0.018),
+                 0.17 * Math.PI, 0.83 * Math.PI, false);
+      offCtx.stroke();
+    }
+    // Right-corner drip
+    const dripA = 0.83 * Math.PI;
+    const dripX = cx + Math.cos(dripA) * mR;
+    const dripY = mCy + Math.sin(dripA) * mR;
+    offCtx.fillStyle = '#000';
     offCtx.beginPath();
-    offCtx.arc(cx, cy + r * 0.07, r * 0.52, 0.18 * Math.PI, 0.82 * Math.PI, false);
-    offCtx.stroke();
+    offCtx.moveTo(dripX - r * 0.025, dripY);
+    offCtx.quadraticCurveTo(dripX, dripY + r * 0.11, dripX + r * 0.02, dripY + r * 0.13);
+    offCtx.quadraticCurveTo(dripX + r * 0.04, dripY + r * 0.11, dripX + r * 0.025, dripY);
+    offCtx.closePath();
+    offCtx.fill();
 
     return { cx, cy, r, eDX, eY };
   }
@@ -203,37 +255,48 @@ canvas { display: block; }
     return (0.299 * imageData[idx] + 0.587 * imageData[idx + 1] + 0.114 * imageData[idx + 2]) / 255;
   }
 
-  function charFor(b) {
-    return CHAR_RAMP[Math.min(CHAR_RAMP.length - 1, Math.floor(b * CHAR_RAMP.length))];
-  }
-
   function init() {
-    const geo = drawSmiley(W * dpr, H * dpr);
-    imageData = offCtx.getImageData(0, 0, W * dpr, H * dpr).data;
+    const geo = drawSmiley(canvas.width, canvas.height);
+    imageData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
 
     // Eye geometry in CSS pixels for the wink overlay
     leftEyeX  = (geo.cx - geo.eDX) / dpr;
     rightEyeX = (geo.cx + geo.eDX) / dpr;
     eyeY      = geo.eY / dpr;
 
-    cellSize = Math.max(6, Math.round(10 * (W / 1280)));
+    cellSize = Math.max(9, Math.round(12 * (W / 1280)));
     const cols = Math.ceil(W / cellSize);
     const rows = Math.ceil(H / cellSize);
     particles = [];
 
+    // Grid fills the WHOLE canvas — not just the face silhouette. BG cells
+    // render dim rust; face cells render bright yellow. Both undergo the
+    // same barrel warp at render time. This is what buys the op-art vertigo
+    // — the grid-wide distortion — not any single-particle trick.
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const hx = col * cellSize + cellSize / 2;
         const hy = row * cellSize + cellSize / 2;
         const b = sampleBrightness(Math.round(hx * dpr), Math.round(hy * dpr));
-        if (b < BRIGHTNESS_FLOOR) continue;
+        const isFace = b > BRIGHTNESS_FLOOR;
+
+        // Checkerboard thinning + a little randomness for BG cells keeps
+        // fillText counts reasonable on mobile without flattening the grid.
+        if (!isFace) {
+          if ((col + row) & 1) continue;
+          if (Math.random() < 0.15) continue;
+        }
+
+        const acidIdx = col & 3;  // col % 4 — letters read left-to-right
         particles.push({
           x: hx, y: hy,
           vx: 0, vy: 0,
           hx, hy,
-          brightness: b,
-          restChar: charFor(b),
-          char: charFor(b),
+          brightness: isFace ? b : (0.55 + 0.2 * Math.random()),
+          acidIdx,
+          restChar: ACID[acidIdx],
+          char: ACID[acidIdx],
+          isFace,
           scramble: 0,
           phase: Math.random() * Math.PI * 2,
         });
@@ -305,15 +368,15 @@ canvas { display: block; }
 
       p.scramble = Math.max(0, p.scramble - 2.0 * dt);
 
+      // Scramble cycles the particle's char through ACID letters (A↔C↔I↔D)
+      // instead of rotating through a brightness ramp.
       if (p.scramble > 0.05 && Math.random() < p.scramble * 0.8) {
-        const base = Math.floor(p.brightness * CHAR_RAMP.length);
-        const shift = (Math.random() < 0.5 ? -1 : 1) * (1 + (Math.random() * 2 | 0));
-        p.char = CHAR_RAMP[Math.max(1, Math.min(CHAR_RAMP.length - 1, base + shift))];
+        const dir = Math.random() < 0.5 ? 1 : 3;  // +1 or -1 mod 4
+        p.char = ACID[(p.acidIdx + dir) & 3];
       } else {
         p.char = p.restChar;
       }
 
-      // Low-chance ambient twinkle — scramble a single particle slightly.
       if (!PREFERS_REDUCED_MOTION && Math.random() < 0.0008 && p.scramble < 0.01) {
         p.scramble = 0.15 + Math.random() * 0.2;
       }
@@ -335,22 +398,94 @@ canvas { display: block; }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const color = strobing ? POP : PRIMARY;
+    const cx = W / 2, cy = H / 2;
+    const maxD2 = (W * W + H * H) / 4;
+
+    // Breathing barrel warp — pushes cells farther from center outward more
+    // as time evolves. The animation is what makes the grid feel like it's
+    // bulging toward you under peak; static it would just look bent. The
+    // baseline of 0.38 keeps the distortion visible even at the wave's
+    // minimum (op-art flyers are never un-warped).
+    const warpK = PREFERS_REDUCED_MOTION
+      ? 0
+      : 0.38 + 0.25 * Math.sin(time * 0.00035);
+
+    // Chromatic-aberration shift — face cells are drawn 3× (cyan + magenta
+    // ghost, then yellow on top). Amplitude breathes on a slower cycle.
+    const trip = PREFERS_REDUCED_MOTION
+      ? 0
+      : 0.6 + 1.4 * (1 + Math.sin(time * 0.00028));
+
+    // Letter scroll — the whole "ACID" sequence rotates through every 1.8 s
+    // so the same cell reads A, then C, then I, then D. Reinforces that the
+    // grid IS the word, not just decoration.
+    const shift = PREFERS_REDUCED_MOTION ? 0 : Math.floor(time / 1800) & 3;
+
+    const faceColor = strobing ? POP : PRIMARY;
+    // BG color is a saturated acid orange at substantial alpha — the grid
+    // has to carry the op-art, so it needs real weight against the black.
+    const bgColor   = strobing ? 'rgba(255,255,255,0.55)' : 'rgba(230,75,0,0.72)';
+
+    // ── Pass 1: background grid cells ─────────────────────────────────────
+    // No chromatic fringe on BG (keeps perf headroom; fringe is a face tell).
+    ctx.fillStyle = bgColor;
     for (let i = 0, n = particles.length; i < n; i++) {
       const p = particles[i];
+      if (p.isFace) continue;
+      const dx = p.x - cx, dy = p.y - cy;
+      const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+      ctx.globalAlpha = p.brightness;
+      ctx.fillText(
+        ACID[(p.acidIdx + shift) & 3],
+        cx + dx * factor,
+        cy + dy * factor
+      );
+    }
+
+    // ── Pass 2: chromatic fringe on face cells ────────────────────────────
+    if (!strobing && trip > 0) {
+      ctx.fillStyle = FRINGE_CYAN;
+      for (let i = 0, n = particles.length; i < n; i++) {
+        const p = particles[i];
+        if (!p.isFace) continue;
+        const dx = p.x - cx, dy = p.y - cy;
+        const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+        ctx.globalAlpha = p.brightness * 0.55;
+        ctx.fillText(p.char, cx + dx * factor - trip, cy + dy * factor);
+      }
+      ctx.fillStyle = FRINGE_MAGENTA;
+      for (let i = 0, n = particles.length; i < n; i++) {
+        const p = particles[i];
+        if (!p.isFace) continue;
+        const dx = p.x - cx, dy = p.y - cy;
+        const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+        ctx.globalAlpha = p.brightness * 0.55;
+        ctx.fillText(p.char, cx + dx * factor + trip, cy + dy * factor);
+      }
+    }
+
+    // ── Pass 3: face cells on top in the primary color ───────────────────
+    ctx.fillStyle = faceColor;
+    for (let i = 0, n = particles.length; i < n; i++) {
+      const p = particles[i];
+      if (!p.isFace) continue;
+      const dx = p.x - cx, dy = p.y - cy;
+      const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
       ctx.globalAlpha = strobing ? 1 : p.brightness;
-      ctx.fillStyle = color;
-      ctx.fillText(p.char, p.x, p.y);
+      ctx.fillText(p.char, cx + dx * factor, cy + dy * factor);
     }
     ctx.globalAlpha = 1;
 
-    // Wink: bar of '#' chars across each eye hole for WINK_DURATION_S
+    // Wink overlay — warped, same color pass as face.
     if (state.winking) {
-      ctx.fillStyle = color;
+      ctx.fillStyle = faceColor;
       ctx.globalAlpha = 1;
       for (const ex of [leftEyeX, rightEyeX]) {
-        for (let i = -2; i <= 2; i++) {
-          ctx.fillText('#', ex + i * cellSize, eyeY);
+        for (let k = -2; k <= 2; k++) {
+          const px = ex + k * cellSize;
+          const dx = px - cx, dy = eyeY - cy;
+          const factor = 1 + warpK * (dx * dx + dy * dy) / maxD2;
+          ctx.fillText('D', cx + dx * factor, cy + dy * factor);
         }
       }
     }
