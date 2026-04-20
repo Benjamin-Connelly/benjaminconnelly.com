@@ -13,13 +13,12 @@ help:  ## Show this help
 build:  ## Build the static site into site/output/
 	python3 site/build.py
 
-push: build  ## Build, sync beads, deploy via Ansible
+push: build  ## Build, sync beads, deploy to Proxmox LXC 203 via Ansible
 	bd dolt push || echo "  (bd dolt push skipped or already up-to-date)"
 	ANSIBLE_CONFIG=$(abspath $(INFRA_DIR)/ansible.cfg) \
-	ansible-playbook -i $(ANSIBLE_DIR)/inventory/cloud.yml \
-		-e @$(ANSIBLE_DIR)/group_vars/all.yml \
+	ansible-playbook -i $(ANSIBLE_DIR)/inventory/homelab.yml \
 		-e "site_output_dir=$(CURDIR)/site/output/" \
-		$(ANSIBLE_DIR)/playbooks/push-content.yml
+		$(ANSIBLE_DIR)/playbooks/push-site.yml
 
 serve: build  ## Build and serve at http://localhost:$(DEV_PORT)
 	@echo "  Serving at http://localhost:$(DEV_PORT)"
