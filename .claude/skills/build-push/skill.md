@@ -14,7 +14,7 @@ Run ALL checks before proceeding. Report results as a checklist. Any GROUNDED it
 [ ] Content exists   — site/content/ has at least one .md file
 [ ] Templates exist  — site/templates/ has at least one .j2 file
 [ ] Build succeeds   — `make build` exits 0, site/output/ is non-empty
-[ ] Infra repo       — ../benjaminconnelly-infra/ exists and has ansible/playbooks/push-content.yml
+[ ] Infra repo       — ../infra/ exists and has ansible/playbooks/push-content.yml
 [ ] SSH key          — ~/.ssh/bconnelly_ryuk exists and has correct permissions (600)
 [ ] SSH reachable    — `ssh -o ConnectTimeout=5 -o BatchMode=yes ubuntu@52.43.114.69 true` succeeds
 [ ] Ansible installed — `ansible-playbook --version` succeeds
@@ -29,7 +29,7 @@ Run ALL checks before proceeding. Report results as a checklist. Any GROUNDED it
 | Content exists | `GROUNDED: No markdown files found in site/content/` |
 | Templates exist | `GROUNDED: No Jinja2 templates found in site/templates/` |
 | Build fails | `GROUNDED: Build failed. Review build.py output above for errors.` |
-| Infra repo | `GROUNDED: Infra repo not found at ../benjaminconnelly-infra/. Clone it or set INFRA_DIR.` |
+| Infra repo | `GROUNDED: Infra repo not found at ../infra/. Clone it or set INFRA_DIR.` |
 | SSH key | `GROUNDED: SSH key ~/.ssh/bconnelly_ryuk missing or wrong perms. Run: chmod 600 ~/.ssh/bconnelly_ryuk` |
 | SSH unreachable | `GROUNDED: Cannot reach 52.43.114.69. Check VPN, security groups, or instance state.` |
 | Ansible missing | `GROUNDED: Ansible not installed. Run: pip install ansible` |

@@ -1,6 +1,6 @@
 # benjaminconnelly.com
 
-Personal and business website. Static site built from Python, deployed to an AWS EC2 host via Ansible playbooks defined in the sibling `benjaminconnelly-infra` repo.
+Personal and business website. Static site built from Python, deployed to an AWS EC2 host via Ansible playbooks defined in the sibling `infra` repo.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ content (Markdown + templates)      site/build.py       site/output/
 ```
 
 - **Build:** `site/build.py` renders Markdown + Jinja templates into `site/output/`.
-- **Deploy:** `ansible/playbooks/push-content.yml` (in the infra repo) syncs `site/output/` to the EC2 host and reloads nginx. No provisioning is done from this repo — the EC2 instance, DNS, and nginx config are all owned by `benjaminconnelly-infra`.
+- **Deploy:** `ansible/playbooks/push-content.yml` (in the infra repo) syncs `site/output/` to the EC2 host and reloads nginx. No provisioning is done from this repo — the EC2 instance, DNS, and nginx config are all owned by `infra`.
 - **Tests:** Playwright smoke tests live in `tests/`. `package.json` exists only for dev tooling; the production deploy is Python-only.
 
 ## Quickstart
@@ -30,7 +30,7 @@ make test         # Playwright smoke tests
 make push         # Build + deploy via sibling infra Ansible playbook
 ```
 
-`make push` requires the `benjaminconnelly-infra` repo to be checked out at `../benjaminconnelly-infra` (override with `INFRA_DIR=<path>`) and a working Ansible setup (SOPS age key, `~/.ssh/` access to the EC2 instance).
+`make push` requires the `infra` repo to be checked out at `../infra` (override with `INFRA_DIR=<path>`) and a working Ansible setup (SOPS age key, `~/.ssh/` access to the EC2 instance).
 
 ## Prerequisites
 
@@ -56,8 +56,8 @@ Makefile             Primary command interface
 
 | What | Where |
 |---|---|
-| EC2 provisioning, DNS, nginx config, TLS | `benjaminconnelly-infra/terraform/stacks/benjaminconnelly-com/` |
-| Ansible playbooks that push content | `benjaminconnelly-infra/ansible/playbooks/push-content.yml` |
-| SOPS-encrypted secrets (Cloudflare token, htpasswd, SSH) | `benjaminconnelly-infra/ansible/group_vars/all.sops.yml` |
+| EC2 provisioning, DNS, nginx config, TLS | `infra/terraform/stacks/benjaminconnelly-com/` |
+| Ansible playbooks that push content | `infra/ansible/playbooks/push-content.yml` |
+| SOPS-encrypted secrets (Cloudflare token, htpasswd, SSH) | `infra/ansible/group_vars/all.sops.yml` |
 
 Changes to this repo don't require a terraform apply. Changes that require infrastructure (new paths, new TLS certs, new nginx config) go in the infra repo.

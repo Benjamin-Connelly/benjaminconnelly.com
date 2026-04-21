@@ -24,7 +24,7 @@ docs/                     Project documentation
 
 - Content is Markdown with metadata in bold-key format at the top of each file
 - Templates use Jinja2
-- Deployment uses Ansible playbooks from the sibling `benjaminconnelly-infra` repo
+- Deployment uses Ansible playbooks from the sibling `infra` repo
 - `output/` is generated and should not be committed
 
 ## Quick Reference
@@ -60,7 +60,7 @@ pip install -r site/requirements.txt    # markdown, jinja2
 
 ## Gotchas
 
-- `make push` expects `../benjaminconnelly-infra` to exist (configurable via `INFRA_DIR`)
+- `make push` expects `../infra` to exist (configurable via `INFRA_DIR`)
 - `make push` runs Ansible from the infra repo — needs AWS credentials and SSH access to EC2
 - The `output/` directory is wiped on each build
 - `make watch` requires `entr` (`apt install entr`) for file watching

@@ -114,4 +114,4 @@ If the brief is underspecified, make strong creative choices. Commit to a direct
 2. If the piece flashes or strobes, add a `#photo-warn` strip and a `prefers-reduced-motion` gate on the flashing behavior.
 3. Run `make build` to copy static files to output.
 4. Test with `make dev` — verify the thumbnail animates, the link works, and reduced-motion users see a calm version.
-5. `make push` when ready to deploy (builds + rsync + nginx reload via Ansible against `../benjaminconnelly-infra`).
+5. `make push` when ready to deploy (builds + rsync + nginx reload via Ansible against `../infra`).

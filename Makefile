@@ -1,6 +1,6 @@
 .PHONY: help build clean push serve dev watch open test test-setup
 
-INFRA_DIR ?= ../benjaminconnelly-infra
+INFRA_DIR ?= ../infra
 ANSIBLE_DIR := $(INFRA_DIR)/ansible
 DEV_PORT ?= 8000
 
