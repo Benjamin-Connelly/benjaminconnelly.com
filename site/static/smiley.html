@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Acid Smiley — ASCII canvas with illusion modes</title>
-<meta name="description" content="The 1988 acid-house smiley rendered as an ACID-letter ASCII field. Op-art barrel warp, 8-arm zoetrope, Kitaoka peripheral drift. Hold S for LSD-inspired chaos.">
+<meta name="description" content="The 1988 acid-house smiley rendered as an ACID-letter ASCII field. Op-art barrel warp, 8-arm zoetrope, Kitaoka peripheral drift, Chladni-plate cymatic sand. Hold S for LSD-inspired chaos.">
 <meta name="author" content="Benjamin Connelly">
 <meta name="theme-color" content="#05020a">
 <meta name="color-scheme" content="dark">
@@ -12,7 +12,7 @@
 <meta property="og:site_name" content="benjaminconnelly.com">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Acid Smiley — ASCII canvas with illusion modes">
-<meta property="og:description" content="1988 acid-house smiley as an ACID-letter ASCII field. Op-art warp, zoetrope, peripheral drift.">
+<meta property="og:description" content="1988 acid-house smiley as an ACID-letter ASCII field. Op-art warp, zoetrope, peripheral drift, Chladni cymatic sand.">
 <meta property="og:url" content="https://benjaminconnelly.com/smiley.html">
 <meta property="og:image" content="https://benjaminconnelly.com/img/og-smiley.png">
 <meta property="og:image:width" content="1200">
@@ -20,7 +20,7 @@
 <meta property="og:image:alt" content="A yellow ASCII smiley face made of repeating ACID letters on a warped orange grid.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Acid Smiley — ASCII canvas with illusion modes">
-<meta name="twitter:description" content="1988 acid-house smiley as ACID-letter ASCII. Op-art, zoetrope, peripheral drift.">
+<meta name="twitter:description" content="1988 acid-house smiley as ACID-letter ASCII. Op-art, zoetrope, peripheral drift, Chladni cymatic sand.">
 <meta name="twitter:image" content="https://benjaminconnelly.com/img/og-smiley.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='white' stroke='black' stroke-width='3'/><g fill='black'><polygon points='50,50 39,34 50,18 61,34'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(120 50 50)'/><polygon points='50,50 39,34 50,18 61,34' transform='rotate(240 50 50)'/></g></svg>">
 <script type="application/ld+json">
@@ -29,11 +29,11 @@
   "@type": "CreativeWork",
   "name": "Acid Smiley",
   "headline": "Acid Smiley — ASCII canvas with illusion modes",
-  "description": "The 1988 acid-house smiley rendered as an ACID-letter ASCII field. Op-art barrel warp, 8-arm zoetrope, Kitaoka peripheral drift. Hold S for LSD-inspired chaos.",
+  "description": "The 1988 acid-house smiley rendered as an ACID-letter ASCII field. Op-art barrel warp, 8-arm zoetrope, Kitaoka peripheral drift, Chladni-plate cymatic sand. Hold S for LSD-inspired chaos.",
   "url": "https://benjaminconnelly.com/smiley.html",
   "image": "https://benjaminconnelly.com/img/og-smiley.png",
   "author": { "@type": "Person", "name": "Benjamin Connelly", "url": "https://benjaminconnelly.com/" },
-  "keywords": "canvas, acid house, smiley face, ASCII art, rave, op-art, zoetrope, Kitaoka, peripheral drift, optical illusion, 1988, Shoom"
+  "keywords": "canvas, acid house, smiley face, ASCII art, rave, op-art, zoetrope, Kitaoka, peripheral drift, optical illusion, cymatics, Chladni plate, sand resonance, standing waves, 1988, Shoom"
 }
 </script>
 <style>
@@ -241,11 +241,17 @@ canvas { display: block; }
   //   'rotsnake' — Kitaoka "rotating snakes" peripheral-drift palette. The
   //                image is STATIC; the apparent motion is produced by your
   //                peripheral vision reading the KBWY luminance sequence.
-  const MODES = ['op-art', 'zoetrope', 'rotsnake'];
+  //   'cymatics' — Chladni-plate sand resonance. ACID-letter "sand" migrates
+  //                to nodal lines of a square-plate standing-wave function;
+  //                the field sweeps through (m,n) mode pairs and periodically
+  //                snaps into the literal word ACID before dispersing again.
+  const MODES = ['op-art', 'zoetrope', 'rotsnake', 'cymatics'];
   let modeIdx = 0;
   let modeChangedAt = -1e9;  // for the brief mode-label overlay
 
-  const SCRAMBLE_RADIUS = 70;
+  // Mouse scramble radius — wide enough that a casual mouse drift leaves a
+  // visible wake of disturbed letters across all four modes.
+  const SCRAMBLE_RADIUS = 140;
   const SCRAMBLE_RADIUS_SQ = SCRAMBLE_RADIUS * SCRAMBLE_RADIUS;
   const PUSH_ACCEL = 520;       // px/s² applied radially when mouse is close
   const RETURN_K = 18;          // spring pulling back to home (1/s²)
@@ -272,6 +278,140 @@ canvas { display: block; }
     '#7c00ff', '#ff0066', '#00ff9c', '#ffd700',
   ];
 
+  // ── Cymatics mode: 6 genre-themed resonance designs ─────────────────────
+  // Sand on a vibrating plate settles into the nodal lines of a standing
+  // wave. The amplitude function differs per design — square-plate
+  // Chladni for grids, circular-plate radial for flowers, counter-rotated
+  // mode sums for broken-beat chaos — and "sand" (the ACID particles)
+  // settles where |A·pulse| is small. Each design is tuned to evoke a
+  // specific dance-music subgenre by its rhythm + rotation feel.
+  //
+  // BPM → pulseHz: pulseHz = BPM/240, so the visible breath lands every
+  // 4th kick rather than on the kick itself (less seizure-y over a long
+  // viewing). rotHz is revolutions per second of the spatial pattern.
+  // pulsePower shapes the pulse waveform: 1 = pure sine (groovy), >1 =
+  // sharper attack with longer decay (kick-drum punch). The visible
+  // pattern is widest when pulse is low and narrowest when pulse is high,
+  // so high pulsePower reads as a brief sharp "fire" of thin lines on the
+  // beat — the visual analogue of a hard four-on-the-floor kick.
+  const CYM_DESIGNS = [
+    {
+      name: 'house',     // 100 BPM-equivalent, Chicago/NJ, soulful, slow
+      pulseHz: 100 / 240,
+      pulsePower: 1.0,
+      rotHz: 0.024,
+      // 8-petal flower (disco-floral) modulated by radial standing waves.
+      // Polar field — theta picks up rotation, r picks up the concentric
+      // pulse. Reads as a slow-spinning sun centred behind the smiley.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        const theta = Math.atan2(dy, dx) + rot;
+        const radial = Math.cos(5.6 * Math.PI * r / L);
+        const angular = Math.cos(8 * theta);
+        return radial * angular;
+      },
+    },
+    {
+      name: 'techno',    // 130 BPM, Detroit/Berlin, mechanical, hard
+      pulseHz: 130 / 240,
+      pulsePower: 2.6,   // sharp kick — narrow line-flash on the beat
+      rotHz: 0.008,      // heavier, more deliberate creep
+      // Dense (6, 9) Chladni — more nodal lines than the previous (5, 7),
+      // harder grid presence. Pre-rotates coordinates so the grid creeps
+      // clockwise without warping its aspect ratio.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const co = Math.cos(rot), si = Math.sin(rot);
+        const xr = dx * co - dy * si + cx;
+        const yr = dx * si + dy * co + cy;
+        const ax = Math.PI * xr / W, ay = Math.PI * yr / H;
+        return Math.cos(6 * ax) * Math.cos(9 * ay)
+             - Math.cos(9 * ax) * Math.cos(6 * ay);
+      },
+    },
+    {
+      name: 'drum & bass', // 174 BPM, jungle, broken syncopation
+      pulseHz: 174 / 240,
+      pulsePower: 1.5,
+      rotHz: 0.085,
+      // Sum of (7, 3) and (2, 5) modes counter-rotated against each other.
+      // The two patterns interfere and never quite repeat — visual analogue
+      // of breakbeat chopping.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const co1 = Math.cos(rot), si1 = Math.sin(rot);
+        const x1 = dx * co1 - dy * si1 + cx;
+        const y1 = dx * si1 + dy * co1 + cy;
+        const co2 = Math.cos(-rot * 1.6), si2 = Math.sin(-rot * 1.6);
+        const x2 = dx * co2 - dy * si2 + cx;
+        const y2 = dx * si2 + dy * co2 + cy;
+        const a1x = Math.PI * x1 / W, a1y = Math.PI * y1 / H;
+        const a1 = Math.cos(7 * a1x) * Math.cos(3 * a1y)
+                 - Math.cos(3 * a1x) * Math.cos(7 * a1y);
+        const a2x = Math.PI * x2 / W, a2y = Math.PI * y2 / H;
+        const a2 = Math.cos(2 * a2x) * Math.cos(5 * a2y)
+                 - Math.cos(5 * a2x) * Math.cos(2 * a2y);
+        return 0.62 * a1 + 0.55 * a2;
+      },
+    },
+    {
+      name: 'trance',    // 138 BPM, hypnotic build, concentric
+      pulseHz: 138 / 240,
+      pulsePower: 1.0,
+      rotHz: 0,
+      // Bessel-like concentric rings expanding from the plate centre.
+      // Rotation is replaced by an outward phase advance — rings ripple
+      // outward continuously. The 'rot' argument carries that phase.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        return Math.cos(9 * Math.PI * r / L - rot * 1.6);
+      },
+    },
+    {
+      name: 'acid',      // 130 BPM, 303-driven, dense web
+      pulseHz: 130 / 240,
+      pulsePower: 1.8,   // squelchy attack
+      rotHz: 0.027,
+      // High-mode Chladni (8, 11) — many nodal lines crossing, web-like
+      // density.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const co = Math.cos(rot), si = Math.sin(rot);
+        const xr = dx * co - dy * si + cx;
+        const yr = dx * si + dy * co + cy;
+        const ax = Math.PI * xr / W, ay = Math.PI * yr / H;
+        return Math.cos(8 * ax) * Math.cos(11 * ay)
+             - Math.cos(11 * ax) * Math.cos(8 * ay);
+      },
+    },
+    {
+      name: 'hip hop',   // 92 BPM, boom-bap, head-nod
+      pulseHz: 92 / 240,
+      pulsePower: 1.4,   // punchy but not as sharp as techno
+      rotHz: 0.018,
+      // Chunky low-mode (3, 5) Chladni — big nodal regions, sparser grid.
+      // Reads as a block-like pattern with the lazy gravity of a boom-bap
+      // break. Slow rotation gives it head-nod motion.
+      field: (x, y, cx, cy, L, W, H, rot) => {
+        const dx = x - cx, dy = y - cy;
+        const co = Math.cos(rot), si = Math.sin(rot);
+        const xr = dx * co - dy * si + cx;
+        const yr = dx * si + dy * co + cy;
+        const ax = Math.PI * xr / W, ay = Math.PI * yr / H;
+        return Math.cos(3 * ax) * Math.cos(5 * ay)
+             - Math.cos(5 * ax) * Math.cos(3 * ay);
+      },
+    },
+  ];
+  const CYM_DESIGN_DURATION_MS = 7200;   // dwell on each design before crossfade
+  const CYM_CROSSFADE_FRAC = 0.18;       // last 18% of dwell crossfades to next
+  const CYM_NODE_THRESHOLD = 0.34;       // |A·pulse| below this → visible sand
+  const CYM_ALIGN_PERIOD_MS = 26000;     // how often the field morphs into ACID
+  const CYM_ALIGN_DURATION_MS = 5200;    // ramp-in + hold + ramp-out window
+  const CYM_LABEL_HOLD_MS = 2200;        // genre label visible after each switch
+
   const PREFERS_REDUCED_MOTION = typeof matchMedia === 'function'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -279,6 +419,14 @@ canvas { display: block; }
   // Zoetrope particles — independent of the grid, laid out on an 8-arm
   // Archimedean spiral. Recomputed on resize.
   let zoetropeParticles = [];
+  // Cymatic ACID-alignment stencil. A pre-rendered grayscale of the word
+  // "ACID" used as an alternative amplitude field during alignment phases:
+  // sand "settles" inside the bright letter strokes and "shakes" outside.
+  let acidFieldData = null;
+  // Tracks the most recent cymatic design so the genre label fades in
+  // each time the active (i0) design changes.
+  let cymLastDesignIdx = -1;
+  let cymDesignChangedAt = -1e9;
   let cellSize = 9;
   let mouseX = 0, mouseY = 0, mouseActive = false;
   let dpr = 1, W, H;
@@ -401,9 +549,51 @@ canvas { display: block; }
     return (0.299 * imageData[idx] + 0.587 * imageData[idx + 1] + 0.114 * imageData[idx + 2]) / 255;
   }
 
+  // Pre-render the word "ACID" to the offscreen canvas at near-fullwidth and
+  // cache the grayscale byte buffer. Used by the cymatics "alignment" phase
+  // to override the Chladni field with a letterform field. Must be called
+  // AFTER the smiley imageData has been captured because we clobber offCtx.
+  function buildAcidField() {
+    const w = canvas.width, h = canvas.height;
+    offCtx.save();
+    offCtx.fillStyle = '#000';
+    offCtx.fillRect(0, 0, w, h);
+    // Fit "ACID" to ~78% of viewport width or 36% of usable height — matches
+    // the rough visual scale of the smiley behind it so the snap reads as
+    // the same plate, not a different layer.
+    const usable = Math.max(h * 0.5, h - 96 * dpr);
+    const cyPx = (h - usable) / 2 + usable / 2;
+    let fontPx = Math.min(w * 0.86, usable * 0.78);
+    offCtx.fillStyle = '#fff';
+    offCtx.textAlign = 'center';
+    offCtx.textBaseline = 'middle';
+    // Iteratively shrink until measured width fits the canvas with margin.
+    for (let i = 0; i < 6; i++) {
+      offCtx.font = `900 ${fontPx}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+      const measured = offCtx.measureText('ACID').width;
+      if (measured <= w * 0.86) break;
+      fontPx *= (w * 0.86) / measured;
+    }
+    offCtx.fillText('ACID', w / 2, cyPx);
+    acidFieldData = offCtx.getImageData(0, 0, w, h).data;
+    offCtx.restore();
+  }
+
+  // Read the cached ACID stencil at a physical-pixel coordinate. Returns
+  // 0..1 brightness — high inside letter strokes, ~0 outside.
+  function sampleAcidField(px, py) {
+    if (!acidFieldData) return 0;
+    const stride = canvas.width;
+    if (px < 0 || px >= stride || py < 0 || py >= canvas.height) return 0;
+    return acidFieldData[(py * stride + px) * 4] / 255;
+  }
+
   function init() {
     const geo = drawSmiley(canvas.width, canvas.height);
     imageData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+    // Re-uses offCtx to bake the ACID alignment stencil. Order matters:
+    // imageData has already been copied out, so clobbering offCtx is safe.
+    buildAcidField();
 
     // Eye geometry in CSS pixels for the wink overlay
     leftEyeX  = (geo.cx - geo.eDX) / dpr;
@@ -724,6 +914,141 @@ canvas { display: block; }
     ctx.globalAlpha = 1;
   }
 
+  // ── Cymatics background (5 genre-themed resonance designs) ──────────────
+  // The grid behaves as sand on a vibrating plate. The active design's
+  // field function returns an amplitude A(x,y); sand settles where |A·pulse|
+  // is small (nodal lines) and is shaken off where it's large (antinodes).
+  // Every CYM_DESIGN_DURATION_MS the active design advances to the next in
+  // CYM_DESIGNS, with a tail-end crossfade between adjacent fields. Every
+  // CYM_ALIGN_PERIOD_MS the entire field morphs into the offscreen ACID
+  // stencil — sand collapses into the literal word, holds, disperses back.
+  // Each design rotates in plate coordinates at its own rate, on top of the
+  // design-cycle "rotation".
+  function renderCymaticsBg(time, cx, cy, s, bgHex, flash) {
+    const tSec = time / 1000;
+
+    // Pick current and next design + crossfade weight.
+    const designPhase = time / CYM_DESIGN_DURATION_MS;
+    const i0 = Math.floor(designPhase) % CYM_DESIGNS.length;
+    const i1 = (i0 + 1) % CYM_DESIGNS.length;
+    const localT = designPhase - Math.floor(designPhase);  // 0..1
+    const xfade = localT > (1 - CYM_CROSSFADE_FRAC)
+      ? (localT - (1 - CYM_CROSSFADE_FRAC)) / CYM_CROSSFADE_FRAC
+      : 0;
+    const d0 = CYM_DESIGNS[i0];
+    const d1 = CYM_DESIGNS[i1];
+
+    // Track the active design so the genre label can fade in on each switch.
+    if (i0 !== cymLastDesignIdx) {
+      cymLastDesignIdx = i0;
+      cymDesignChangedAt = time;
+    }
+
+    // Plate centre + characteristic length for polar designs. Rings/flowers
+    // hang behind the smiley, so use the face centre as the plate centre.
+    const plateCx = W / 2;
+    const plateCy = usableMidY();
+    const plateL = Math.min(W, usableH()) * 0.5;
+
+    // Each design has its own rotation rate. Trance uses 'rot' as a phase
+    // for its outward ring ripple — same parameter, different semantics.
+    const rot0 = tSec * d0.rotHz * 2 * Math.PI;
+    const rot1 = tSec * d1.rotHz * 2 * Math.PI;
+
+    // Pulse — interpolate Hz + pulsePower across the crossfade so the
+    // beat never jumps and the kick-shape morphs smoothly between designs.
+    // pulsePower=1 is a pure sine; >1 sharpens the attack into a kick-like
+    // peak with a longer trough between hits. Range matches the previous
+    // formulation (0.10..1.00) when pulsePower=1.
+    const pulseHz = d0.pulseHz * (1 - xfade) + d1.pulseHz * xfade;
+    const pulsePower = d0.pulsePower * (1 - xfade) + d1.pulsePower * xfade;
+    const sineNorm = 0.5 + 0.5 * Math.sin(tSec * 2 * Math.PI * pulseHz);
+    const pulse = 0.10 + 0.90 * Math.pow(sineNorm, pulsePower);
+
+    // ACID alignment timing — triangular ramp inside the last
+    // CYM_ALIGN_DURATION_MS of each CYM_ALIGN_PERIOD_MS window. Eased and
+    // clamped so the peak holds for a beat before dispersing.
+    const periodPos = (time % CYM_ALIGN_PERIOD_MS) / CYM_ALIGN_PERIOD_MS;
+    const alignFrac = CYM_ALIGN_DURATION_MS / CYM_ALIGN_PERIOD_MS;
+    let alignAlpha = 0;
+    if (periodPos > 1 - alignFrac) {
+      const u = (periodPos - (1 - alignFrac)) / alignFrac;  // 0..1
+      const tri = u < 0.5 ? u * 2 : (1 - u) * 2;            // 0→1→0
+      alignAlpha = Math.min(1, tri * 1.55);                  // hold near peak
+    }
+
+    // Hoist field references — V8 inlines small monomorphic calls but the
+    // crossfade branches between two of them, so caching locals is friendly.
+    const f0 = d0.field;
+    const f1 = d1.field;
+
+    const baseColor = bgHex || PRIMARY;
+    const bgAlphaScale = bgHex ? (0.55 + 0.25 * s) : 1;
+    ctx.fillStyle = baseColor;
+
+    for (let i = 0, n = particles.length; i < n; i++) {
+      const p = particles[i];
+      if (p.isFace) continue;
+
+      // Field amplitude at this particle's HOME position (plate-fixed —
+      // mouse displacement does not warp the standing wave).
+      let A;
+      if (xfade > 0) {
+        const A0 = f0(p.hx, p.hy, plateCx, plateCy, plateL, W, H, rot0);
+        const A1 = f1(p.hx, p.hy, plateCx, plateCy, plateL, W, H, rot1);
+        A = A0 * (1 - xfade) + A1 * xfade;
+      } else {
+        A = f0(p.hx, p.hy, plateCx, plateCy, plateL, W, H, rot0);
+      }
+      A *= pulse;
+
+      // Blend with ACID stencil during alignment. The stencil reads "1
+      // inside letter, 0 outside" — invert so 0 = node (settle here),
+      // 1 = antinode (shake the sand off).
+      if (alignAlpha > 0) {
+        const stencil = sampleAcidField(Math.round(p.hx * dpr), Math.round(p.hy * dpr));
+        const A_align = (1 - stencil) * 0.95;
+        A = A * (1 - alignAlpha) + A_align * alignAlpha;
+      }
+
+      const absA = Math.abs(A);
+      const visibility = 1 - absA / CYM_NODE_THRESHOLD;
+      if (visibility < 0.04) continue;
+
+      // Sand vibration: jitter grows with field amplitude, capped at ~half
+      // a cell so neighbouring grains can still be told apart.
+      const jitterAmp = Math.min(cellSize * 0.55, absA * cellSize * 0.7);
+      const jx = (Math.random() - 0.5) * jitterAmp;
+      const jy = (Math.random() - 0.5) * jitterAmp;
+
+      ctx.globalAlpha = Math.min(1, visibility) * bgAlphaScale * (flash ? 1.0 : 1);
+      const idx = (p.acidIdx + (s > 0.5 ? Math.floor(time * 0.04) & 3 : 0)) & 3;
+      // Render at p.x/p.y so mouse displacement still pushes the sand;
+      // field visibility is governed by p.hx/p.hy (the plate coordinate).
+      ctx.fillText(ACID[idx], p.x + jx, p.y + jy);
+    }
+    ctx.globalAlpha = 1;
+
+    // Genre label — short fade-in/hold/fade-out in the top-right corner
+    // each time the active design changes. Independent from the global
+    // mode-label overlay (which fires on E key press).
+    const sinceDesign = time - cymDesignChangedAt;
+    if (sinceDesign < CYM_LABEL_HOLD_MS + 700) {
+      let labelAlpha;
+      if (sinceDesign < 250) labelAlpha = sinceDesign / 250;
+      else if (sinceDesign < CYM_LABEL_HOLD_MS) labelAlpha = 1;
+      else labelAlpha = Math.max(0, 1 - (sinceDesign - CYM_LABEL_HOLD_MS) / 700);
+      ctx.save();
+      ctx.font = '13px "Courier New", monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = PRIMARY;
+      ctx.globalAlpha = labelAlpha * 0.85;
+      ctx.fillText('▸ ' + d0.name, W - 18, 24);
+      ctx.restore();
+    }
+  }
+
   // Smooth strobeIntensity toward its target. Hold ramps 0→1 over
   // STROBE_RAMP_MS; release decays 1→0 over STROBE_TAIL_MS. Auto-release
   // after 15 s even if the key stays down (seizure safety cap).
@@ -758,9 +1083,10 @@ canvas { display: block; }
     const cx = W / 2, cy = usableMidY();
     const maxD2 = (W * W + H * H) / 4;
     // Rotsnake uses static positions so the peripheral-drift illusion
-    // can fire — any motion kills it. Face still breathes, everything
-    // else freezes.
-    const staticMode = (mode === 'rotsnake');
+    // can fire — any motion kills it. Cymatics also disables the barrel
+    // warp + scroll so the standing-wave field reads as a stable plate
+    // in space (the wave itself supplies the motion).
+    const staticMode = (mode === 'rotsnake' || mode === 'cymatics');
 
     // ── Clear: trails build up with intensity (palinopsia) ────────────────
     // At s=0 we fully clear each frame. At s=1 only ~12% of the prior
@@ -816,6 +1142,8 @@ canvas { display: block; }
       renderZoetropeBg(time, cx, cy, s, bgHex, flash);
     } else if (mode === 'rotsnake') {
       renderRotsnakeBg(time, cx, cy, s, bgHex, flash);
+    } else if (mode === 'cymatics') {
+      renderCymaticsBg(time, cx, cy, s, bgHex, flash);
     } else {
       // Default op-art grid with barrel-warp
       if (bgHex) {
@@ -1078,7 +1406,7 @@ canvas { display: block; }
     h3(el, 'Keyboard');
     ul(el, [
       [{strong: 'S'}, ' \u2014 Strobe. Tap = single flash. Hold = sustained hallucination that ramps up over ~1.2 s and auto-releases after 15 s.'],
-      [{strong: 'E'}, ' \u2014 Cycle background mode: op-art / zoetrope (spinning 8-arm spiral, ~7 Hz — watch it drift backward on a 60 Hz monitor) / rotsnake (Kitaoka peripheral-drift palette — stare at the face and the BG spins).'],
+      [{strong: 'E'}, ' \u2014 Cycle background mode: op-art / zoetrope (spinning 8-arm spiral, ~7 Hz — watch it drift backward on a 60 Hz monitor) / rotsnake (Kitaoka peripheral-drift palette — stare at the face and the BG spins) / cymatics (sand-on-plate resonance — six rotating genre-themed designs: house, techno, drum & bass, trance, acid, hip hop; each pulses at its own BPM and snaps into the word ACID every ~26 s).'],
       [{strong: 'M'}, ' \u2014 History & why this face'],
       [{strong: '?'}, ' \u2014 This help'],
       [{strong: 'Esc'}, ' \u2014 Close modal']
