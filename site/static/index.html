@@ -165,9 +165,21 @@ canvas { display: block; width: 100%; height: 100%; }
   position: absolute; clip: rect(0 0 0 0); width: 1px; height: 1px;
   overflow: hidden; white-space: nowrap;
 }
+
+/* Ambient cursor-reactive ASCII field behind the gallery. Fixed, full-
+   viewport, out of flow so it never disturbs the centered cards. The cards
+   and skip-link stack above it; pointer-events:none keeps hover/click on
+   the cards (cursor is tracked on window, not on this canvas). */
+#ascii-bg {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+main.cards { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+
+<canvas id="ascii-bg" aria-hidden="true"></canvas>
 
 <a class="skip-link" href="#cards">skip to gallery</a>
 
@@ -471,6 +483,152 @@ canvas { display: block; width: 100%; height: 100%; }
   }
 
   requestAnimationFrame(animate);
+})();
+</script>
+
+<script>
+// Ambient ASCII field — vanilla port of the cursor-reactive "ascii-hero"
+// background. Monochrome phosphor-green, low base opacity; the cursor pushes
+// a ripple wake through the field and lifts a soft spotlight. A static base
+// field (radial brightness + sine stripes) plus a slow drifting wave gives it
+// life when the pointer is idle. Honors prefers-reduced-motion: one static
+// frame, no animation, no cursor tracking.
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('ascii-bg');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  // Tunables — kept quiet so the field reads as texture, not centerpiece.
+  // Blue atmospheric ramp, dark -> light. Mapped to cell DENSITY (not time):
+  // sparse cells take the deep blues, dense cells the hazy light blues, giving
+  // the layered-ridge depth of distant mountains. No time cycling.
+  const PALETTE = ['#00547B', '#00729C', '#449DC4', '#64A9CA', '#A3BECC'];
+  const PMAX = PALETTE.length - 1;
+  const FONT_SIZE = 12;             // px
+  const FONT_FAMILY = "'Share Tech Mono', 'Courier New', monospace";
+  const RAMP = " .`'\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+  const BASE_OPACITY = 0.12;        // resting alpha
+  const SPOTLIGHT_OPACITY = 0.55;   // alpha at the cursor center
+  const SPOTLIGHT_RADIUS = 9;       // cells
+  const RIPPLE_STRENGTH = 1.4;
+  const RIPPLE_RADIUS = 6;          // cells
+  const FRAME_MS = 50;              // ~20fps — ambient, low CPU
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let cols = 0, rows = 0, cellW = 0, cellH = 0, dpr = 1;
+  let baseField = new Float32Array(0);
+  let lastFrame = 0;
+  const mouse = { x: -9999, y: -9999 };
+  const rampMax = RAMP.length - 1;
+  const spotR2 = SPOTLIGHT_RADIUS * SPOTLIGHT_RADIUS * 2;
+
+  function seed() {
+    baseField = new Float32Array(cols * rows);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const nx = (x / cols) * 2 - 1;
+        const ny = (y / rows) * 2 - 1;
+        const r = Math.sqrt(nx * nx + ny * ny);
+        const stripes = 0.5 + 0.5 * Math.sin(nx * 6 + ny * 2);
+        const radial = 1 - Math.min(1, r * 1.2);
+        baseField[y * cols + x] = 0.25 * stripes + 0.55 * radial;
+      }
+    }
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    if (w === 0 || h === 0) return;
+    canvas.width = Math.max(1, Math.floor(w * dpr));
+    canvas.height = Math.max(1, Math.floor(h * dpr));
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = FONT_SIZE + 'px ' + FONT_FAMILY;
+    ctx.textBaseline = 'top';
+    const measured = ctx.measureText('M').width || FONT_SIZE * 0.6;
+    cellW = measured;
+    cellH = FONT_SIZE * 1.15;
+    cols = Math.max(1, Math.floor(w / cellW));
+    rows = Math.max(1, Math.floor(h / cellH));
+    seed();
+  }
+
+  function paint(time) {
+    const t = time * 0.001;
+    const animate = !reduced;
+    const cx = mouse.x / cellW;
+    const cy = mouse.y / cellH;
+    const mouseInside = animate &&
+      mouse.x >= -24 && mouse.x <= window.innerWidth + 24 &&
+      mouse.y >= -24 && mouse.y <= window.innerHeight + 24;
+
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const base = baseField[y * cols + x];
+        const wave = animate
+          ? 0.15 * Math.sin(x * 0.18 + t * 1.4) * Math.cos(y * 0.22 - t * 1.1)
+          : 0;
+
+        let ripple = 0, d2 = 0;
+        if (mouseInside) {
+          const dx = x - cx;
+          const dy = (y - cy) * 1.8;
+          d2 = dx * dx + dy * dy;
+          const d = Math.sqrt(d2);
+          ripple = RIPPLE_STRENGTH * Math.exp(-d2 / 80) -
+            0.6 * Math.exp(-((d - RIPPLE_RADIUS) * (d - RIPPLE_RADIUS)) / 30);
+        }
+
+        const v = Math.max(0, Math.min(1, base + wave + ripple));
+        const ch = RAMP[Math.floor(v * rampMax)];
+        if (ch === ' ') continue;
+
+        let alpha = BASE_OPACITY;
+        if (mouseInside) {
+          const spot = Math.exp(-d2 / spotR2);
+          alpha = BASE_OPACITY + (SPOTLIGHT_OPACITY - BASE_OPACITY) * spot;
+          if (alpha > 1) alpha = 1;
+        }
+        if (alpha <= 0.01) continue;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = PALETTE[Math.floor(v * PMAX)];
+        ctx.fillText(ch, x * cellW, y * cellH);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame(time) {
+    requestAnimationFrame(frame);
+    if (document.hidden) return;
+    if (time - lastFrame < FRAME_MS) return;
+    lastFrame = time;
+    if (cols === 0) resize();
+    paint(time);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+
+  if (reduced) {
+    // No motion, no cursor reactivity — render one static frame and stop.
+    paint(0);
+  } else {
+    window.addEventListener('mousemove', function(e) {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    }, { passive: true });
+    requestAnimationFrame(frame);
+  }
 })();
 </script>
 </body>
